@@ -1,14 +1,17 @@
 #include "buzz_utility.h"
 #include "buzzkh4_closures.h"
+#include <buzz/buzzdebug.h>
+
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <unistd.h>
 
 /****************************************/
 /****************************************/
 
 static buzzvm_t    VM       = 0;
-static const char* BO_FNAME = 0;
+static char* BO_FNAME       = 0;
 static uint8_t*    BO_BUF   = 0;
 static buzzdebug_t DBG_INFO = 0;
 
@@ -16,23 +19,25 @@ static buzzdebug_t DBG_INFO = 0;
 /****************************************/
 
 static const char* buzz_error_info() {
-   buzzdebug_entry_t dbg = *buzzdebug_info_get_fromoffset(DBG_BUF, &VM->pc);
-   char* msg;
+   buzzdebug_entry_t dbg = *buzzdebug_info_get_fromoffset(DBG_INFO, &VM->pc);
+   char msg[100];
    if(dbg != NULL) {
-      asprintf(&msg, "%s: execution terminated abnormally at %s:%" PRIu64 ":%" PRIu64 " : %s\n\n",
-               BO_FNAME,
-               dbg->fname,
-               dbg->line,
-               dbg->col,
-               VM->errormsg);
+      snprintf(msg, 100,
+               "%s: execution terminated abnormally at %s:%" PRIu64 ":%" PRIu64 " : %s\n\n",
+              BO_FNAME,
+              dbg->fname,
+              dbg->line,
+              dbg->col,
+              VM->errormsg);
    }
    else {
-      asprintf(&msg, "%s: execution terminated abnormally at bytecode offset %d: %s\n\n",
+      snprintf(msg, 100,
+               "%s: execution terminated abnormally at bytecode offset %d: %s\n\n",
                BO_FNAME,
                VM->pc,
                VM->errormsg);
    }
-   return msg;
+   return strndup(msg, 100);
 }
 
 /****************************************/
@@ -63,7 +68,7 @@ int buzz_script_set(const char* bo_filename,
    if(VM) buzzvm_destroy(&VM);
    VM = buzzvm_new(id);
    /* Get rid of debug info */
-   if(DBG_INFO) buzzdebug_destroy(DBG_INFO);
+   if(DBG_INFO) buzzdebug_destroy(&DBG_INFO);
    DBG_INFO = buzzdebug_new();
    /* Read bytecode and fill in data structure */
    FILE* fd = fopen(bo_filename, "rb");
@@ -117,7 +122,7 @@ int buzz_script_set(const char* bo_filename,
 /****************************************/
 /****************************************/
 
-extern int buzz_script_step() {
+extern void buzz_script_step() {
    /* Process incoming messages */
    /* TODO */
    /* Update sensors */
@@ -139,7 +144,7 @@ extern int buzz_script_step() {
 
 void buzz_script_destroy() {
    if(VM) {
-      buzzvm_function_call(m_tBuzzVM, "destroy", 0);
+      buzzvm_function_call(VM, "destroy", 0);
       buzzvm_destroy(&VM);
       free(BO_FNAME);
       buzzdebug_destroy(&DBG_INFO);
@@ -150,7 +155,7 @@ void buzz_script_destroy() {
 /****************************************/
 
 int buzz_script_done() {
-   return VM->state != BUZZ_STATE_READY;
+   return VM->state != BUZZVM_STATE_READY;
 }
 
 /****************************************/

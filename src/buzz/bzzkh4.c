@@ -1,4 +1,6 @@
 #include <buzz/buzzasm.h>
+#include <buzz_utility.h>
+#include <kh4_utility.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -21,7 +23,7 @@ int main(int argc, char** argv) {
    bcfname = argv[1];
    dbgfname = argv[2];
    /* Initialize the robot */
-   kh4_init();
+   kh4_setup();
    /* Set the Buzz bytecode */
    if(buzz_script_set(bcfname, dbgfname)) {
       /* Main loop */
@@ -31,7 +33,7 @@ int main(int argc, char** argv) {
       buzz_script_destroy();
    }
    /* Stop the robot */
-   kh4_destroy();
+   kh4_done();
    /* All done */
    return 0;
 }

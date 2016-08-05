@@ -3,7 +3,7 @@
 /****************************************/
 /****************************************/
 
-static knet_dev_t* DSPIC;
+knet_dev_t* DSPIC;
 static const int ACC_INC       = 3;
 static const int ACC_DIV       = 0;
 static const int MIN_SPEED_ACC = 20;
@@ -13,7 +13,7 @@ static const int MAX_SPEED     = 400; /* mm/sec */
 /****************************************/
 /****************************************/
 
-void kh4_init() {
+void kh4_setup() {
    /* Set the libkhepera debug level */
    kb_set_debug_level(2);
    /* open robot socket and store the handle in their respective pointers */
@@ -34,7 +34,7 @@ void kh4_init() {
 /****************************************/
 /****************************************/
 
-void kh4_destroy() {
+void kh4_done() {
    /* Stop wheels */
    kh4_set_speed(0, 0, DSPIC);
    /* Set motors to idle */

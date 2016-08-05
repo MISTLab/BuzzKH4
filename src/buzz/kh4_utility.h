@@ -3,8 +3,10 @@
 
 #include <khepera/khepera.h>
 
-extern void kh4_init();
+extern void kh4_setup();
 
-extern void kh4_destroy();
+extern void kh4_done();
+
+extern knet_dev_t* DSPIC;
 
 #endif

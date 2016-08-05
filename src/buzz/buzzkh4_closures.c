@@ -1,4 +1,6 @@
 #include "buzzkh4_closures.h"
+#include "kh4_utility.h"
+#include <stdio.h>
 
 /****************************************/
 /****************************************/
@@ -48,8 +50,8 @@ int buzzkh4_set_wheels(buzzvm_t vm) {
    buzzvm_lnum_assert(vm, 2);
    buzzvm_lload(vm, 1); /* Left speed */
    buzzvm_lload(vm, 2); /* Right speed */
-   buzzvm_type_assert(vm, 2, BUZZVM_FLOAT);
-   buzzvm_type_assert(vm, 1, BUZZVM_FLOAT);
+   buzzvm_type_assert(vm, 2, BUZZTYPE_FLOAT);
+   buzzvm_type_assert(vm, 1, BUZZTYPE_FLOAT);
    kh4_set_speed(buzzvm_stack_at(vm, 2)->f.value * 10.0f, /* Left speed */
                  buzzvm_stack_at(vm, 1)->f.value * 10.0f, /* Right speed */
                  DSPIC);
@@ -61,7 +63,7 @@ int buzzkh4_set_wheels(buzzvm_t vm) {
 
 int buzzkh4_update_battery(buzzvm_t vm) {
    static char BATTERY_BUF[256];
-   kh4_get_battery(BATTERY_BUF, DSPIC);
+   kh4_battery_status(BATTERY_BUF, DSPIC);
    buzzvm_pushs(vm, buzzvm_string_register(vm, "battery", 1));
    buzzvm_pusht(vm);
    buzzvm_dup(vm);
