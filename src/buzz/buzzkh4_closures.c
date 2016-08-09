@@ -1,12 +1,14 @@
+#define _GNU_SOURCE
+#include <stdio.h>
 #include "buzzkh4_closures.h"
 #include "kh4_utility.h"
-#include <stdio.h>
 
 /****************************************/
 /****************************************/
 
 int buzzkh4_print(buzzvm_t vm) {
-   for(int i = 1; i < buzzdarray_size(vm->lsyms->syms); ++i) {
+   int i;
+   for(i = 1; i < buzzdarray_size(vm->lsyms->syms); ++i) {
       buzzvm_lload(vm, i);
       buzzobj_t o = buzzvm_stack_at(vm, 1);
       buzzvm_pop(vm);
@@ -79,7 +81,7 @@ int buzzkh4_update_battery(buzzvm_t vm) {
    buzzvm_pushf(vm, BATTERY_BUF[3]);
    buzzvm_tput(vm);
    buzzvm_gstore(vm);
-   return buzzvm_ret0(vm);
+   return vm->state;
 }
 
 /****************************************/
@@ -87,10 +89,11 @@ int buzzkh4_update_battery(buzzvm_t vm) {
 
 int buzzkh4_update_ir(buzzvm_t vm) {
    static char PROXIMITY_BUF[256];
+   int i;
    kh4_proximity_ir(PROXIMITY_BUF, DSPIC);
    buzzvm_pushs(vm, buzzvm_string_register(vm, "proximity_ir", 1));
    buzzvm_pusht(vm);
-   for (int i = 0; i < 8; i++) {
+   for(i = 0; i < 8; i++) {
       buzzvm_dup(vm);
       buzzvm_pushi(vm, i);
       buzzvm_pushi(vm, (PROXIMITY_BUF[i*2] | PROXIMITY_BUF[i*2+1] << 8));
@@ -99,14 +102,14 @@ int buzzkh4_update_ir(buzzvm_t vm) {
    buzzvm_gstore(vm);
    buzzvm_pushs(vm, buzzvm_string_register(vm, "ground_ir", 1));
    buzzvm_pusht(vm);
-   for (int i = 8; i < 12; i++) {
+   for(i = 8; i < 12; i++) {
       buzzvm_dup(vm);
       buzzvm_pushi(vm, i-8);
       buzzvm_pushi(vm, (PROXIMITY_BUF[i*2] | PROXIMITY_BUF[i*2+1] << 8));
       buzzvm_tput(vm);
    }
    buzzvm_gstore(vm);
-   return buzzvm_ret0(vm);
+   return vm->state;
 }
 
 /****************************************/

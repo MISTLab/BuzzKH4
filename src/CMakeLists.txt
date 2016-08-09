@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 2.8.12)
 
-set(CMAKE_C_FLAGS "-Wall -std=c99")
+set(CMAKE_C_FLAGS "-Wall")
 set(CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake ${CMAKE_INSTALL_PREFIX}/share/buzz/cmake)
 
 find_package(Buzz REQUIRED)
@@ -13,4 +13,6 @@ add_executable(bzzkh4
   buzz/buzzkh4_closures.c buzz/buzzkh4_closures.h
   buzz/kh4_utility.c buzz/kh4_utility.h
   buzz/bzzkh4.c)
-target_link_libraries(bzzkh4 ${BUZZ_LIBRARY} -lkhepera -lpthread)
+target_link_libraries(bzzkh4 ${BUZZ_LIBRARY} ${BUZZ_LIBRARY_DEBUG} -lkhepera -lpthread)
+
+install(TARGETS bzzkh4 RUNTIME DESTINATION bin)

@@ -1,8 +1,10 @@
+#define _GNU_SOURCE
+#include <stdio.h>
+
 #include "buzz_utility.h"
 #include "buzzkh4_closures.h"
 #include <buzz/buzzdebug.h>
 
-#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
@@ -20,9 +22,9 @@ static buzzdebug_t DBG_INFO = 0;
 
 static const char* buzz_error_info() {
    buzzdebug_entry_t dbg = *buzzdebug_info_get_fromoffset(DBG_INFO, &VM->pc);
-   char msg[100];
+   char* msg;
    if(dbg != NULL) {
-      snprintf(msg, 100,
+      asprintf(&msg,
                "%s: execution terminated abnormally at %s:%" PRIu64 ":%" PRIu64 " : %s\n\n",
               BO_FNAME,
               dbg->fname,
@@ -31,13 +33,13 @@ static const char* buzz_error_info() {
               VM->errormsg);
    }
    else {
-      snprintf(msg, 100,
+      asprintf(&msg,
                "%s: execution terminated abnormally at bytecode offset %d: %s\n\n",
                BO_FNAME,
                VM->pc,
                VM->errormsg);
    }
-   return strndup(msg, 100);
+   return msg;
 }
 
 /****************************************/
