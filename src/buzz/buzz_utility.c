@@ -27,20 +27,21 @@ static buzzdebug_t DBG_INFO        = 0;
 static int         MSG_SIZE        = -1;
 static int         TCP_LIST_STREAM = -1;
 static int         TCP_COMM_STREAM = -1;
+static uint8_t*    STREAM_SEND_BUF = NULL;
 
 #define TCP_LIST_STREAM_PORT "24580"
 
 /* Pointer to a function that sends a message on the stream */
-void (*STREAM_SEND)() = NULL;
+static void (*STREAM_SEND)() = NULL;
 
 /* PThread handle to manage incoming messages */
-pthread_t INCOMING_MSG_THREAD;
+static pthread_t INCOMING_MSG_THREAD;
 
 /****************************************/
 /****************************************/
 
 /* PThread mutex to manage the list of incoming packets */
-pthread_mutex_t INCOMING_PACKET_MUTEX;
+static pthread_mutex_t INCOMING_PACKET_MUTEX;
 
 /* List of packets received over the stream */
 struct incoming_packet_s {
@@ -53,7 +54,8 @@ struct incoming_packet_s {
 };
 
 /* The list of incoming packets */
-static struct incoming_packet_s* PACKETS = NULL;
+static struct incoming_packet_s* PACKETS_FIRST = NULL;
+static struct incoming_packet_s* PACKETS_LAST  = NULL;
 
 void incoming_packet_add(int id,
                          const uint8_t* pl) {
@@ -62,37 +64,51 @@ void incoming_packet_add(int id,
       (struct incoming_packet_s*)malloc(sizeof(struct incoming_packet_s));
    /* Fill in the data */
    p->id = id;
-   memcpy(p->payload, pl, MSG_SIZE);
+   p->payload = malloc(MSG_SIZE - sizeof(uint16_t));
+   memcpy(p->payload, pl, MSG_SIZE - sizeof(uint16_t));
+   p->next = NULL;
    /* Lock mutex */
    pthread_mutex_lock(&INCOMING_PACKET_MUTEX);
-   /* Add as first to list */
-   p->next = PACKETS;
-   PACKETS = p;
+   /* Add as last to list */
+   if(PACKETS_FIRST != NULL)
+      PACKETS_LAST->next = p;
+   else
+      PACKETS_FIRST = p;
+   PACKETS_LAST = p;
    /* Unlock mutex */
    pthread_mutex_unlock(&INCOMING_PACKET_MUTEX);
+   /* fprintf(stderr, "[DEBUG]    Added packet from %d\n", id); */
 }
 
 /****************************************/
 /****************************************/
 
-static void* buzz_stream_incoming_thread_tcp(void* args) {
+void* buzz_stream_incoming_thread_tcp(void* args) {
    /* Create buffer for message */
-   uint8_t* buf = calloc(MSG_SIZE + sizeof(uint16_t), 1);
+   uint8_t* buf = calloc(MSG_SIZE, 1);
    /* Tot bytes left to receive, received up to now, and received at a
     * specific call of recv() */
    ssize_t left, tot, cur;
    while(1) {
       /* Initialize left byte count */
-      left = MSG_SIZE + sizeof(uint16_t);
+      left = MSG_SIZE;
       tot = 0;
       while(left > 0) {
          cur = recv(TCP_COMM_STREAM, buf + tot, left, 0);
+         /* fprintf(stderr, "[DEBUG] Received %zd bytes", cur); */
          if(cur < 0) {
             fprintf(stderr, "Error receiving data: %s\n", strerror(errno));
+            free(buf);
+            return NULL;
+         }
+         if(cur == 0) {
+            fprintf(stderr, "Connection closed by peer\n");
+            free(buf);
             return NULL;
          }
          left -= cur;
          tot += cur;
+         /* fprintf(stderr, ", %zd left, %zd tot\n", left, tot); */
       }
       /* Done receiving data, add packet to list */
       incoming_packet_add(*(uint16_t*)buf,
@@ -100,34 +116,34 @@ static void* buzz_stream_incoming_thread_tcp(void* args) {
    }
 }
 
-static void buzz_stream_send_tcp(void* payload) {
-   /* Buffer for the data to send */
-   uint8_t* buf = (uint8_t*)malloc(MSG_SIZE + sizeof(uint16_t));
-   *(uint16_t*)buf = VM->robot;
-   memcpy(buf + sizeof(uint16_t), payload, MSG_SIZE);
+void buzz_stream_send_tcp() {
    /* Tot bytes left to send, sent up to now, and sent at a specific
     * call of send() */
    ssize_t left, tot, cur;
    /* Initialize left byte count */
-   left = MSG_SIZE + sizeof(uint16_t);
+   left = MSG_SIZE;
    tot = 0;
    while(left > 0) {
-      cur = send(TCP_COMM_STREAM, buf + tot, left, 0);
+      cur = send(TCP_COMM_STREAM, STREAM_SEND_BUF + tot, left, 0);
+      /* fprintf(stderr, "[DEBUG] Sent %zd bytes", cur); */
       if(cur < 0) {
          fprintf(stderr, "Error receiving data: %s\n", strerror(errno));
          exit(1);
       }
+      if(cur == 0) {
+         fprintf(stderr, "Connection closed by peer\n");
+         exit(1);
+      }
       left -= cur;
       tot += cur;
+      /* fprintf(stderr, ", %zd left, %zd tot\n", left, tot); */
    }
-   /* Cleanup */
-   free(buf);
 }
 
 /****************************************/
 /****************************************/
 
-static int buzz_listen_tcp() {
+int buzz_listen_tcp() {
    /* Used to store the return value of the network function calls */
    int retval;
    /* Get information on the available interfaces */
@@ -199,6 +215,7 @@ static int buzz_listen_tcp() {
            inet_ntoa(((struct sockaddr_in*)(&addr))->sin_addr));
    /* Ready to communicate through TCP */
    STREAM_SEND = buzz_stream_send_tcp;
+   STREAM_SEND_BUF = (uint8_t*)malloc(MSG_SIZE);
    if(pthread_create(&INCOMING_MSG_THREAD, NULL, &buzz_stream_incoming_thread_tcp, NULL) != 0) {
       fprintf(stderr, "Can't create thread: %s\n", strerror(errno));
       close(TCP_COMM_STREAM);
@@ -208,7 +225,7 @@ static int buzz_listen_tcp() {
    return 1;
 }
 
-static int buzz_listen_bt() {
+int buzz_listen_bt() {
    return 0;
 }
 
@@ -337,32 +354,61 @@ int buzz_script_set(const char* bo_filename,
 /****************************************/
 /****************************************/
 
-extern void buzz_script_step() {
+void buzz_script_step() {
    /*
     * Process incoming messages
     */
    /* Reset neighbor information */
    buzzneighbors_reset(VM);
    /* Lock mutex */
+   /* fprintf(stderr, "[DEBUG] Processing incoming packets...\n"); */
    pthread_mutex_lock(&INCOMING_PACKET_MUTEX);
    /* Go through messages and add them to the FIFO */
-   struct incoming_packet_s* p = PACKETS;
    struct incoming_packet_s* n;
-   while(p) {
+   while(PACKETS_FIRST) {
       /* Save next packet */
-      n = p->next;
-      /* Update Buzz information */
-      buzzneighbors_add(VM, p->id, 0.0, 0.0, 0.0);
-      buzzinmsg_queue_append(VM->inmsgs,
-                             buzzmsg_payload_frombuffer(p->payload,
-                                                        MSG_SIZE));
+      n = PACKETS_FIRST->next;
+      /* Update Buzz neighbors information */
+      buzzneighbors_add(VM, PACKETS_FIRST->id, 0.0, 0.0, 0.0);
+      /* Go through the payload and extract the messages */
+      uint8_t* pl = PACKETS_FIRST->payload;
+      size_t tot = 0;
+      uint16_t msgsz;
+      /* fprintf(stderr, "[DEBUG] Processing packet %p from %d\n", */
+      /*         PACKETS_FIRST, */
+      /*         PACKETS_FIRST->id); */
+      /* fprintf(stderr, "[DEBUG] recv sz = %u\n", */
+      /*         *(uint16_t*)pl); */
+      do {
+         /* Get payload size */
+         msgsz = *(uint16_t*)(pl + tot);
+         tot += sizeof(uint16_t);
+         /* fprintf(stderr, "[DEBUG]    msg size = %u, tot = %zu\n", msgsz, tot); */
+         /* Make sure the message payload can be read */
+         if(msgsz > 0 && msgsz <= MSG_SIZE - tot) {
+            /* Append message to the Buzz input message queue */
+            buzzinmsg_queue_append(
+               VM->inmsgs,
+               buzzmsg_payload_frombuffer(pl + tot, msgsz));
+            tot += msgsz;
+            /* fprintf(stderr, "[DEBUG]    appended message, tot = %zu\n", tot); */
+         }
+      }
+      while(MSG_SIZE - tot > sizeof(uint16_t) && msgsz > 0);
       /* Erase packet */
-      free(p);
+      /* fprintf(stderr, "[DEBUG] Done processing packet %p from %d\n", */
+      /*         PACKETS_FIRST, */
+      /*         PACKETS_FIRST->id); */
+      free(PACKETS_FIRST->payload);
+      free(PACKETS_FIRST);
       /* Go to next packet */
-      p = n;
+      PACKETS_FIRST = n;
    }
+   /* The packet list is now empty */
+   PACKETS_LAST = NULL;
    /* Unlock mutex */
    pthread_mutex_unlock(&INCOMING_PACKET_MUTEX);
+   /* fprintf(stderr, "[DEBUG] Done processing incoming packets.\n"); */
    /* Process messages */
    buzzvm_process_inmsgs(VM);
    /*
@@ -382,15 +428,41 @@ extern void buzz_script_step() {
    /*
     * Broadcast messages
     */
-   while(!buzzoutmsg_queue_isempty(VM->outmsgs)) {
-      /* Get message */
+   /* Prepare buffer */
+   memset(STREAM_SEND_BUF, 0, MSG_SIZE);
+   *(uint16_t*)STREAM_SEND_BUF = VM->robot;
+   ssize_t tot = sizeof(uint16_t);
+   do {
+      /* Are there more messages? */
+      if(buzzoutmsg_queue_isempty(VM->outmsgs)) break;
+      /* Get first message */
       buzzmsg_payload_t m = buzzoutmsg_queue_first(VM->outmsgs);
-      /* Send message */
-      STREAM_SEND(m->data);
+      /* Make sure it fits the data buffer */
+      if(tot + buzzmsg_payload_size(m) + sizeof(uint16_t)
+         >
+         MSG_SIZE) {
+         buzzmsg_payload_destroy(&m);
+         break;
+      }
+      /* Add message length to data buffer */
+      /* fprintf(stderr, "[DEBUG] send before sz = %u\n", */
+      /*         *(uint16_t*)(STREAM_SEND_BUF + 2)); */
+      *(uint16_t*)(STREAM_SEND_BUF + tot) = (uint16_t)buzzmsg_payload_size(m);
+      tot += sizeof(uint16_t);
+      /* fprintf(stderr, "[DEBUG] send after sz = %u\n", */
+      /*         *(uint16_t*)(STREAM_SEND_BUF + 2)); */
+      /* Add payload to data buffer */
+      memcpy(STREAM_SEND_BUF + tot, m->data, buzzmsg_payload_size(m));
+      tot += buzzmsg_payload_size(m);
       /* Get rid of message */
       buzzoutmsg_queue_next(VM->outmsgs);
       buzzmsg_payload_destroy(&m);
-   }
+   } while(1);
+   /* fprintf(stderr, "[DEBUG] send id = %u, sz = %u\n", */
+   /*         *(uint16_t*)STREAM_SEND_BUF, */
+   /*         *(uint16_t*)(STREAM_SEND_BUF + 2)); */
+   /* Send messages */
+   STREAM_SEND();
 }
 
 /****************************************/
@@ -400,6 +472,8 @@ void buzz_script_destroy() {
    /* Cancel thread */
    pthread_cancel(INCOMING_MSG_THREAD);
    pthread_join(INCOMING_MSG_THREAD, NULL);
+   /* Get rid of stream buffer */
+   free(STREAM_SEND_BUF);
    /* Get rid of virtual machine */
    if(VM) {
       buzzvm_function_call(VM, "destroy", 0);

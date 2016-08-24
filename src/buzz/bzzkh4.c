@@ -47,9 +47,9 @@ int main(int argc, char** argv) {
       return 0;
    }
    /* The bytecode filename */
-   char* bcfname = argv[2];
+   char* bcfname = argv[3];
    /* The debugging information file name */
-   char* dbgfname = argv[3];
+   char* dbgfname = argv[4];
    /* Wait for connection */
    if(!buzz_listen(stream, msg_sz)) return 1;
    /* Set CTRL-C handler */
