@@ -13,17 +13,6 @@ static const int MAX_SPEED     = 400; /* mm/sec */
 /****************************************/
 /****************************************/
 
-static void dump_dspic() {
-   printf("DSPIC = %p\n", DSPIC);
-   printf("  bus = %p\n", DSPIC->bus);
-   printf("  order = %lu\n", DSPIC->order);
-   printf("  name = %s\n", DSPIC->name);
-   printf("  usage_counter = %du\n", DSPIC->usage_counter);
-}
-
-/****************************************/
-/****************************************/
-
 void kh4_setup() {
    /* Set the libkhepera debug level */
    kb_set_debug_level(2);
@@ -35,7 +24,6 @@ void kh4_setup() {
    }
    /* open robot socket and store the handle in their respective pointers */
    DSPIC = knet_open("Khepera4:dsPic", KNET_BUS_I2C, 0, NULL);
-   dump_dspic();
    /* Set speed profile */
    kh4_SetSpeedProfile(ACC_INC,       /* Acceleration increment */
                        ACC_DIV,       /* Acceleration divider */
@@ -54,16 +42,11 @@ void kh4_setup() {
 
 void kh4_done() {
    /* Stop wheels */
-   printf("  SET SPEED\n");
-   dump_dspic();
    kh4_set_speed(0, 0, DSPIC);
    /* Set motors to idle */
-   printf("  SET MODE\n");
    kh4_SetMode(kh4RegIdle, DSPIC);
    /* Clear rgb leds because consumes energy */
-   printf("  SET LEDS\n");
    kh4_SetRGBLeds(0, 0, 0, 0, 0, 0, 0, 0, 0, DSPIC); 
-   printf("  DONE\n");
 }
 
 /****************************************/
