@@ -45,8 +45,9 @@ void kh4_done() {
    kh4_set_speed(0, 0, DSPIC);
    /* Set motors to idle */
    kh4_SetMode(kh4RegIdle, DSPIC);
-   /* Clear rgb leds because consumes energy */
+   /* Clear rgb leds because they consume energy */
    kh4_SetRGBLeds(0, 0, 0, 0, 0, 0, 0, 0, 0, DSPIC); 
+   fprintf(stdout, "Robot stopped.\n");
 }
 
 /****************************************/

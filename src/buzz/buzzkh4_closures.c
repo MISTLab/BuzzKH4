@@ -63,6 +63,27 @@ int buzzkh4_set_wheels(buzzvm_t vm) {
 /****************************************/
 /****************************************/
 
+int buzzkh4_set_leds(buzzvm_t vm) {
+   buzzvm_lnum_assert(vm, 3);
+   buzzvm_lload(vm, 1); /* Red */
+   buzzvm_lload(vm, 2); /* Green */
+   buzzvm_lload(vm, 3); /* Blue */
+   buzzvm_type_assert(vm, 3, BUZZTYPE_INT);
+   buzzvm_type_assert(vm, 2, BUZZTYPE_INT);
+   buzzvm_type_assert(vm, 1, BUZZTYPE_INT);
+   int32_t r = buzzvm_stack_at(vm, 3)->i.value;
+   int32_t g = buzzvm_stack_at(vm, 2)->i.value;
+   int32_t b = buzzvm_stack_at(vm, 1)->i.value;
+   kh4_SetRGBLeds(r,g,b, /* Left */
+                  r,g,b, /* Right */
+                  r,g,b, /* Back */
+                  DSPIC);
+   return buzzvm_ret0(vm);
+}
+
+/****************************************/
+/****************************************/
+
 int buzzkh4_update_battery(buzzvm_t vm) {
    static char BATTERY_BUF[256];
    kh4_battery_status(BATTERY_BUF, DSPIC);
@@ -95,7 +116,7 @@ int buzzkh4_update_ir(buzzvm_t vm) {
    buzzvm_pusht(vm);
    for(i = 0; i < 8; i++) {
       buzzvm_dup(vm);
-      buzzvm_pushi(vm, i);
+      buzzvm_pushi(vm, i+1);
       buzzvm_pushi(vm, (PROXIMITY_BUF[i*2] | PROXIMITY_BUF[i*2+1] << 8));
       buzzvm_tput(vm);
    }
@@ -104,7 +125,7 @@ int buzzkh4_update_ir(buzzvm_t vm) {
    buzzvm_pusht(vm);
    for(i = 8; i < 12; i++) {
       buzzvm_dup(vm);
-      buzzvm_pushi(vm, i-8);
+      buzzvm_pushi(vm, i-7);
       buzzvm_pushi(vm, (PROXIMITY_BUF[i*2] | PROXIMITY_BUF[i*2+1] << 8));
       buzzvm_tput(vm);
    }

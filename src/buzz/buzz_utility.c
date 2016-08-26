@@ -282,6 +282,9 @@ static int buzz_register_hooks() {
    buzzvm_pushs(VM,  buzzvm_string_register(VM, "set_wheels", 1));
    buzzvm_pushcc(VM, buzzvm_function_register(VM, buzzkh4_set_wheels));
    buzzvm_gstore(VM);
+   buzzvm_pushs(VM,  buzzvm_string_register(VM, "set_leds", 1));
+   buzzvm_pushcc(VM, buzzvm_function_register(VM, buzzkh4_set_leds));
+   buzzvm_gstore(VM);
    return BUZZVM_STATE_READY;
 }
 
@@ -353,6 +356,42 @@ int buzz_script_set(const char* bo_filename,
 
 /****************************************/
 /****************************************/
+
+struct buzzswarm_elem_s {
+   buzzdarray_t swarms;
+   uint16_t age;
+};
+typedef struct buzzswarm_elem_s* buzzswarm_elem_t;
+
+void check_swarm_members(const void* key, void* data, void* params) {
+   buzzswarm_elem_t e = *(buzzswarm_elem_t*)data;
+   int* status = (int*)params;
+   if(*status == 3) return;
+   if(buzzdarray_size(e->swarms) != 1) {
+      fprintf(stderr, "Swarm list size is not 1\n");
+      *status = 3;
+   }
+   else {
+      int sid = 1;
+      if(*buzzdict_get(VM->swarms, &sid, uint8_t) &&
+         buzzdarray_get(e->swarms, 0, uint16_t) != sid) {
+         fprintf(stderr, "I am in swarm #%d and neighbor is in %d\n",
+                 sid,
+                 buzzdarray_get(e->swarms, 0, uint16_t));
+         *status = 3;
+         return;
+      }
+      sid = 2;
+      if(*buzzdict_get(VM->swarms, &sid, uint8_t) &&
+         buzzdarray_get(e->swarms, 0, uint16_t) != sid) {
+         fprintf(stderr, "I am in swarm #%d and neighbor is in %d\n",
+                 sid,
+                 buzzdarray_get(e->swarms, 0, uint16_t));
+         *status = 3;
+         return;
+      }
+   }
+}
 
 void buzz_script_step() {
    /*
@@ -462,7 +501,21 @@ void buzz_script_step() {
    /*         *(uint16_t*)STREAM_SEND_BUF, */
    /*         *(uint16_t*)(STREAM_SEND_BUF + 2)); */
    /* Send messages */
+   buzzvm_process_outmsgs(VM);
    STREAM_SEND();
+   /* Sleep */
+   usleep(100000);
+   /* Print swarm */
+   buzzswarm_members_print(stdout, VM->swarmmembers, VM->robot);
+   /* Check swarm state */
+   int status = 1;
+   buzzdict_foreach(VM->swarmmembers, check_swarm_members, &status);
+   if(status == 1 &&
+      buzzdict_size(VM->swarmmembers) < 9)
+      status = 2;
+   buzzvm_pushs(VM, buzzvm_string_register(VM, "swarm_status", 1));
+   buzzvm_pushi(VM, status);
+   buzzvm_gstore(VM);
 }
 
 /****************************************/
@@ -476,11 +529,18 @@ void buzz_script_destroy() {
    free(STREAM_SEND_BUF);
    /* Get rid of virtual machine */
    if(VM) {
+      if(VM->state != BUZZVM_STATE_READY) {
+         fprintf(stderr, "%s: execution terminated abnormally: %s\n\n",
+                 BO_FNAME,
+                 buzz_error_info());
+         buzzvm_dump(VM);
+      }
       buzzvm_function_call(VM, "destroy", 0);
       buzzvm_destroy(&VM);
       free(BO_FNAME);
       buzzdebug_destroy(&DBG_INFO);
    }
+   fprintf(stdout, "Script execution stopped.\n");
 }
 
 /****************************************/
