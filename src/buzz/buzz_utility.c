@@ -29,8 +29,8 @@ static int         TCP_LIST_STREAM = -1;
 static int         TCP_COMM_STREAM = -1;
 static uint8_t*    STREAM_SEND_BUF = NULL;
 
-#define TCP_LIST_STREAM_PORT "24590"
-#define IDOFFSET 0
+#define TCP_LIST_STREAM_PORT "24580"
+#define IDOFFSET 2
 
 /* Pointer to a function that sends a message on the stream */
 static void (*STREAM_SEND)() = NULL;
@@ -412,10 +412,11 @@ void buzz_script_step() {
       /* Save next packet */
       n = PACKETS_FIRST->next;
       /* Update Buzz neighbors information */
+      uint16_t* loc = (uint16_t*)PACKETS_FIRST->payload+sizeof(uint16_t);
       float x=0.1,y=0.1,t=0.1;
-      memcpy(&x, PACKETS_FIRST->payload, sizeof(float));
-      memcpy(&y, PACKETS_FIRST->payload+sizeof(float), sizeof(float));
-      memcpy(&t, PACKETS_FIRST->payload+2*sizeof(float), sizeof(float));
+      memcpy(&x, loc, sizeof(float));
+      memcpy(&y, loc+sizeof(float), sizeof(float));
+      memcpy(&t, loc+2*sizeof(float), sizeof(float));
 fprintf(stdout,"got neighbors position: %.2f,%.2f,%.2f\n",x,y,t);
       buzzneighbors_add(VM, PACKETS_FIRST->id, x, y, t);
       /* Go through the payload and extract the messages */
