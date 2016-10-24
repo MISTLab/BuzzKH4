@@ -29,7 +29,8 @@ static int         TCP_LIST_STREAM = -1;
 static int         TCP_COMM_STREAM = -1;
 static uint8_t*    STREAM_SEND_BUF = NULL;
 
-#define TCP_LIST_STREAM_PORT "24580"
+#define TCP_LIST_STREAM_PORT "24590"
+#define IDOFFSET 0
 
 /* Pointer to a function that sends a message on the stream */
 static void (*STREAM_SEND)() = NULL;
@@ -279,6 +280,9 @@ static int buzz_register_hooks() {
    buzzvm_pushs(VM,  buzzvm_string_register(VM, "print", 1));
    buzzvm_pushcc(VM, buzzvm_function_register(VM, buzzkh4_print));
    buzzvm_gstore(VM);
+buzzvm_pushs(VM,  buzzvm_string_register(VM, "log", 1));
+buzzvm_pushcc(VM, buzzvm_function_register(VM, buzzkh4_print));
+buzzvm_gstore(VM);
    buzzvm_pushs(VM,  buzzvm_string_register(VM, "set_wheels", 1));
    buzzvm_pushcc(VM, buzzvm_function_register(VM, buzzkh4_set_wheels));
    buzzvm_gstore(VM);
@@ -298,7 +302,7 @@ int buzz_script_set(const char* bo_filename,
    gethostname(hstnm, 30);
    /* Make numeric id from hostname */
    /* NOTE: here we assume that the hostname is in the format Knn */
-   int id = strtol(hstnm + 1, NULL, 10);
+   int id = strtol(hstnm + 1, NULL, 10) + IDOFFSET;	//CHANGES FOR OFFROBOTS TESTS!!!!
    /* Reset the Buzz VM */
    if(VM) buzzvm_destroy(&VM);
    VM = buzzvm_new(id);
@@ -408,9 +412,14 @@ void buzz_script_step() {
       /* Save next packet */
       n = PACKETS_FIRST->next;
       /* Update Buzz neighbors information */
-      buzzneighbors_add(VM, PACKETS_FIRST->id, 0.0, 0.0, 0.0);
+      float x=0.0,y=0.0,t=0.0;
+      memcpy(&x, PACKETS_FIRST->payload, sizeof(float));
+      memcpy(&y, PACKETS_FIRST->payload+sizeof(float), sizeof(float));
+      memcpy(&t, PACKETS_FIRST->payload+2*sizeof(float), sizeof(float));
+      buzzneighbors_add(VM, PACKETS_FIRST->id, x, y, t);
+fprintf(stdout,"got neighbors position: %.2f,%.2f,%.2f\n",x,y,t);
       /* Go through the payload and extract the messages */
-      uint8_t* pl = PACKETS_FIRST->payload;
+      uint8_t* pl = PACKETS_FIRST->payload+3*sizeof(float);
       size_t tot = 0;
       uint16_t msgsz;
       /* fprintf(stderr, "[DEBUG] Processing packet %p from %d\n", */
@@ -433,7 +442,7 @@ void buzz_script_step() {
             /* fprintf(stderr, "[DEBUG]    appended message, tot = %zu\n", tot); */
          }
       }
-      while(MSG_SIZE - tot > sizeof(uint16_t) && msgsz > 0);
+      while(MSG_SIZE - 3 * sizeof(float) - tot > sizeof(uint16_t) && msgsz > 0);
       /* Erase packet */
       /* fprintf(stderr, "[DEBUG] Done processing packet %p from %d\n", */
       /*         PACKETS_FIRST, */
@@ -477,7 +486,7 @@ void buzz_script_step() {
       /* Get first message */
       buzzmsg_payload_t m = buzzoutmsg_queue_first(VM->outmsgs);
       /* Make sure it fits the data buffer */
-      if(tot + buzzmsg_payload_size(m) + sizeof(uint16_t)
+      if(tot + 3*sizeof(float) + buzzmsg_payload_size(m) + sizeof(uint16_t)
          >
          MSG_SIZE) {
          buzzmsg_payload_destroy(&m);
@@ -490,6 +499,14 @@ void buzz_script_step() {
       tot += sizeof(uint16_t);
       /* fprintf(stderr, "[DEBUG] send after sz = %u\n", */
       /*         *(uint16_t*)(STREAM_SEND_BUF + 2)); */
+      /* add local position*/
+      float x=0.0,y=0.11,t=0.0;
+      memcpy(STREAM_SEND_BUF + tot, m->data, x);
+      tot += sizeof(float);
+      memcpy(STREAM_SEND_BUF + tot, m->data, y);
+      tot += sizeof(float);
+      memcpy(STREAM_SEND_BUF + tot, m->data, t);
+      tot += sizeof(float);
       /* Add payload to data buffer */
       memcpy(STREAM_SEND_BUF + tot, m->data, buzzmsg_payload_size(m));
       tot += buzzmsg_payload_size(m);

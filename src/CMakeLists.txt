@@ -5,14 +5,15 @@ set(CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake ${CMAKE_INSTALL_PREFIX}/share/bu
 
 find_package(Buzz REQUIRED)
 
-include_directories(${CMAKE_SOURCE_DIR}/buzz ${KHEPERA_INCLUDE_DIR} ${BUZZ_C_INCLUDE_DIR})
-link_directories(${KHEPERA_LIBRARY_DIR})
+include_directories(${CMAKE_SOURCE_DIR}/buzz ${BUZZ_C_INCLUDE_DIR})
+#include_directories(${CMAKE_SOURCE_DIR}/buzz ${KHEPERA_INCLUDE_DIR} ${BUZZ_C_INCLUDE_DIR})
+#link_directories(${KHEPERA_LIBRARY_DIR})
 
 add_executable(bzzkh4
   buzz/buzz_utility.c buzz/buzz_utility.h
   buzz/buzzkh4_closures.c buzz/buzzkh4_closures.h
   buzz/kh4_utility.c buzz/kh4_utility.h
   buzz/bzzkh4.c)
-target_link_libraries(bzzkh4 ${BUZZ_LIBRARY} ${BUZZ_LIBRARY_DEBUG} -lkhepera -lpthread)
+target_link_libraries(bzzkh4 ${BUZZ_LIBRARY} ${BUZZ_LIBRARY_DEBUG} -lpthread)
 
 install(TARGETS bzzkh4 RUNTIME DESTINATION bin)
