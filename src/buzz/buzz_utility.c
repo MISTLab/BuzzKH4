@@ -412,12 +412,12 @@ void buzz_script_step() {
       /* Save next packet */
       n = PACKETS_FIRST->next;
       /* Update Buzz neighbors information */
-      float x=0.0,y=0.0,t=0.0;
+      float x=0.1,y=0.1,t=0.1;
       memcpy(&x, PACKETS_FIRST->payload, sizeof(float));
       memcpy(&y, PACKETS_FIRST->payload+sizeof(float), sizeof(float));
       memcpy(&t, PACKETS_FIRST->payload+2*sizeof(float), sizeof(float));
-      buzzneighbors_add(VM, PACKETS_FIRST->id, x, y, t);
 fprintf(stdout,"got neighbors position: %.2f,%.2f,%.2f\n",x,y,t);
+      buzzneighbors_add(VM, PACKETS_FIRST->id, x, y, t);
       /* Go through the payload and extract the messages */
       uint8_t* pl = PACKETS_FIRST->payload+3*sizeof(float);
       size_t tot = 0;
@@ -495,18 +495,19 @@ fprintf(stdout,"got neighbors position: %.2f,%.2f,%.2f\n",x,y,t);
       /* Add message length to data buffer */
       /* fprintf(stderr, "[DEBUG] send before sz = %u\n", */
       /*         *(uint16_t*)(STREAM_SEND_BUF + 2)); */
-      *(uint16_t*)(STREAM_SEND_BUF + tot) = (uint16_t)buzzmsg_payload_size(m);
+      *(uint16_t*)(STREAM_SEND_BUF + tot) = (uint16_t)buzzmsg_payload_size(m) +3*sizeof(float);
       tot += sizeof(uint16_t);
       /* fprintf(stderr, "[DEBUG] send after sz = %u\n", */
       /*         *(uint16_t*)(STREAM_SEND_BUF + 2)); */
       /* add local position*/
       float x=0.0,y=0.11,t=0.0;
-      memcpy(STREAM_SEND_BUF + tot, m->data, x);
+      memcpy(STREAM_SEND_BUF + tot, &x, sizeof(float));
       tot += sizeof(float);
-      memcpy(STREAM_SEND_BUF + tot, m->data, y);
+      memcpy(STREAM_SEND_BUF + tot, &y, sizeof(float));
       tot += sizeof(float);
-      memcpy(STREAM_SEND_BUF + tot, m->data, t);
+      memcpy(STREAM_SEND_BUF + tot, &t, sizeof(float));
       tot += sizeof(float);
+fprintf(stdout,"sending neighbors position: %.2f,%.2f,%.2f\n",x,y,t);
       /* Add payload to data buffer */
       memcpy(STREAM_SEND_BUF + tot, m->data, buzzmsg_payload_size(m));
       tot += buzzmsg_payload_size(m);
