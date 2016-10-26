@@ -1,0 +1,14 @@
+function init() {
+}
+
+function step() {
+neighbors.foreach(
+  function(rid, data) {
+    log("robot ", rid, ": ",
+        "distance  = ", data.distance, ", ",
+        "azimuth   = ", data.azimuth, ", ",
+        "elevation = ", data.elevation) })
+}
+
+function destroy() {
+}

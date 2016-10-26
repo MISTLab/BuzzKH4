@@ -30,6 +30,7 @@ static int         TCP_COMM_STREAM = -1;
 static uint8_t*    STREAM_SEND_BUF = NULL;
 
 #define TCP_LIST_STREAM_PORT "24580"
+#define IDOFFSET 2
 
 /* Pointer to a function that sends a message on the stream */
 static void (*STREAM_SEND)() = NULL;
@@ -279,6 +280,9 @@ static int buzz_register_hooks() {
    buzzvm_pushs(VM,  buzzvm_string_register(VM, "print", 1));
    buzzvm_pushcc(VM, buzzvm_function_register(VM, buzzkh4_print));
    buzzvm_gstore(VM);
+buzzvm_pushs(VM,  buzzvm_string_register(VM, "log", 1));
+buzzvm_pushcc(VM, buzzvm_function_register(VM, buzzkh4_print));
+buzzvm_gstore(VM);
    buzzvm_pushs(VM,  buzzvm_string_register(VM, "set_wheels", 1));
    buzzvm_pushcc(VM, buzzvm_function_register(VM, buzzkh4_set_wheels));
    buzzvm_gstore(VM);
@@ -298,7 +302,7 @@ int buzz_script_set(const char* bo_filename,
    gethostname(hstnm, 30);
    /* Make numeric id from hostname */
    /* NOTE: here we assume that the hostname is in the format Knn */
-   int id = strtol(hstnm + 1, NULL, 10);
+   int id = strtol(hstnm + 1, NULL, 10) + IDOFFSET;	//CHANGES FOR OFFROBOTS TESTS!!!!
    /* Reset the Buzz VM */
    if(VM) buzzvm_destroy(&VM);
    VM = buzzvm_new(id);
@@ -408,14 +412,22 @@ void buzz_script_step() {
       /* Save next packet */
       n = PACKETS_FIRST->next;
       /* Update Buzz neighbors information */
-      buzzneighbors_add(VM, PACKETS_FIRST->id, 0.0, 0.0, 0.0);
-      /* Go through the payload and extract the messages */
-      uint8_t* pl = PACKETS_FIRST->payload;
+      uint8_t* pl = (uint8_t*)PACKETS_FIRST->payload;
+      float x=0.0,y=0.0,t=0.0;
       size_t tot = 0;
+      memcpy(&x, pl+tot, sizeof(float));
+      tot += sizeof(float);
+      memcpy(&y, pl+tot, sizeof(float));
+      tot += sizeof(float);
+      memcpy(&t, pl+tot, sizeof(float));
+      tot += sizeof(float);
+      //fprintf(stdout,"got neighbors position: %.2f,%.2f,%.2f\n",x,y,t);
+      buzzneighbors_add(VM, PACKETS_FIRST->id, x, y, t);
+      /* Go through the payload and extract the messages */
       uint16_t msgsz;
-      /* fprintf(stderr, "[DEBUG] Processing packet %p from %d\n", */
-      /*         PACKETS_FIRST, */
-      /*         PACKETS_FIRST->id); */
+      /* fprintf(stderr, "[DEBUG] Processing packet %p from %d\n",
+               PACKETS_FIRST,
+               PACKETS_FIRST->id);*/
       /* fprintf(stderr, "[DEBUG] recv sz = %u\n", */
       /*         *(uint16_t*)pl); */
       do {
@@ -471,6 +483,15 @@ void buzz_script_step() {
    memset(STREAM_SEND_BUF, 0, MSG_SIZE);
    *(uint16_t*)STREAM_SEND_BUF = VM->robot;
    ssize_t tot = sizeof(uint16_t);
+      /* add local position*/
+      float x=0.0,y=0.11,t=0.0;
+      memcpy(STREAM_SEND_BUF + tot, &x, sizeof(float));
+      tot += sizeof(float);
+      memcpy(STREAM_SEND_BUF + tot, &y, sizeof(float));
+      tot += sizeof(float);
+      memcpy(STREAM_SEND_BUF + tot, &t, sizeof(float));
+      tot += sizeof(float);
+      //fprintf(stdout,"sending neighbors position: %.2f,%.2f,%.2f\n",x,y,t);
    do {
       /* Are there more messages? */
       if(buzzoutmsg_queue_isempty(VM->outmsgs)) break;
@@ -493,6 +514,8 @@ void buzz_script_step() {
       /* Add payload to data buffer */
       memcpy(STREAM_SEND_BUF + tot, m->data, buzzmsg_payload_size(m));
       tot += buzzmsg_payload_size(m);
+      fprintf(stderr, "[DEBUG] send before sz = %u\n",
+               *(uint16_t*)(STREAM_SEND_BUF + 2));
       /* Get rid of message */
       buzzoutmsg_queue_next(VM->outmsgs);
       buzzmsg_payload_destroy(&m);
@@ -501,6 +524,11 @@ void buzz_script_step() {
    /*         *(uint16_t*)STREAM_SEND_BUF, */
    /*         *(uint16_t*)(STREAM_SEND_BUF + 2)); */
    /* Send messages */
+      /*float xo=0.0,yo=0.0,to=0.0;
+      memcpy(&xo, STREAM_SEND_BUF+sizeof(uint16_t), sizeof(float));
+      memcpy(&yo, STREAM_SEND_BUF+sizeof(uint16_t)+sizeof(float), sizeof(float));
+      memcpy(&to, STREAM_SEND_BUF+sizeof(uint16_t)+2*sizeof(float), sizeof(float));
+      fprintf(stdout,"retrieving neighbors position: %.2f,%.2f,%.2f\n",xo,yo,to);*/
    buzzvm_process_outmsgs(VM);
    STREAM_SEND();
    /* Sleep */
