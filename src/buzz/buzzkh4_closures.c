@@ -54,9 +54,9 @@ int buzzkh4_set_wheels(buzzvm_t vm) {
    buzzvm_lload(vm, 2); /* Right speed */
    buzzvm_type_assert(vm, 2, BUZZTYPE_FLOAT);
    buzzvm_type_assert(vm, 1, BUZZTYPE_FLOAT);
-   /*kh4_set_speed(buzzvm_stack_at(vm, 2)->f.value * 10.0f, // Left speed
+   kh4_set_speed(buzzvm_stack_at(vm, 2)->f.value * 10.0f, // Left speed
                  buzzvm_stack_at(vm, 1)->f.value * 10.0f, // Right speed
-                 DSPIC);*/
+                 DSPIC);
    return buzzvm_ret0(vm);
 }
 
@@ -74,10 +74,10 @@ int buzzkh4_set_leds(buzzvm_t vm) {
    int32_t r = buzzvm_stack_at(vm, 3)->i.value;
    int32_t g = buzzvm_stack_at(vm, 2)->i.value;
    int32_t b = buzzvm_stack_at(vm, 1)->i.value;
-   /*kh4_SetRGBLeds(r,g,b, // Left
+   kh4_SetRGBLeds(r,g,b, // Left
                   r,g,b, // Right
                   r,g,b, // Back
-                  DSPIC);*/
+                  DSPIC);
    return buzzvm_ret0(vm);
 }
 
@@ -86,7 +86,7 @@ int buzzkh4_set_leds(buzzvm_t vm) {
 
 int buzzkh4_update_battery(buzzvm_t vm) {
    static char BATTERY_BUF[256];
-   //kh4_battery_status(BATTERY_BUF, DSPIC);
+   kh4_battery_status(BATTERY_BUF, DSPIC);
    buzzvm_pushs(vm, buzzvm_string_register(vm, "battery", 1));
    buzzvm_pusht(vm);
    buzzvm_dup(vm);
@@ -111,7 +111,7 @@ int buzzkh4_update_battery(buzzvm_t vm) {
 int buzzkh4_update_ir(buzzvm_t vm) {
    static char PROXIMITY_BUF[256];
    int i;
-   //kh4_proximity_ir(PROXIMITY_BUF, DSPIC);
+   kh4_proximity_ir(PROXIMITY_BUF, DSPIC);
    buzzvm_pushs(vm, buzzvm_string_register(vm, "proximity_ir", 1));
    buzzvm_pusht(vm);
    for(i = 0; i < 8; i++) {
