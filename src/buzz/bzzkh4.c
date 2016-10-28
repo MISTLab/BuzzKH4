@@ -57,6 +57,9 @@ int main(int argc, char** argv) {
    signal(SIGINT, ctrlc_handler);
    /* Initialize the robot */
    kh4_setup();
+   /*initialize camera thread*/
+   camera_routine();
+   
    /* Set the Buzz bytecode */
    if(buzz_script_set(bcfname, dbgfname)) {
       /* Main loop */

@@ -13,4 +13,6 @@ extern void buzz_script_destroy();
 
 extern int buzz_script_done();
 
+extern void camera_routine();
+
 #endif
