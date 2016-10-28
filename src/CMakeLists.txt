@@ -15,6 +15,6 @@ add_executable(bzzkh4
   buzz/kh4_utility.c buzz/kh4_utility.h
   buzz/kh4_camera.c buzz/kh4_camera.h
   buzz/bzzkh4.c)
-target_link_libraries(bzzkh4 ${BUZZ_LIBRARY} ${BUZZ_LIBRARY_DEBUG} -lkhepera -lpthread)
+target_link_libraries(bzzkh4 ${BUZZ_LIBRARY} ${BUZZ_LIBRARY_DEBUG} -lkhepera -lpthread -lm)
 
 install(TARGETS bzzkh4 RUNTIME DESTINATION bin)

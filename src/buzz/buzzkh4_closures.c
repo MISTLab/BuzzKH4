@@ -5,6 +5,8 @@
 #include "kh4_utility.h"
 
 #define MIN(x, y) (((x) < (y)) ? (x) : (y))
+
+int TurningMechanism = 0;
 /****************************************/
 /****************************************/
 
@@ -47,18 +49,22 @@ int buzzkh4_print(buzzvm_t vm) {
    return buzzvm_ret0(vm);
 }
 
-void SetWheelSpeedsFromVector(float* c_heading) {
-   float HardTurnOnAngleThreshold = 10.0;
-   float SoftTurnOnAngleThreshold = 70.0;
-   float NoTurnAngleThreshold = 90.0;
-   float MaxSpeed = 100.0;
-   int TurningMechanism = 0;
-   /* Get the heading angle */		
+void WrapValue(float *t_value) {
+         while(*t_value > 3.1416) *t_value -= 2*3.1416;
+         while(*t_value < -3.1416) *t_value += 2*3.1416;
+}
+
+void SetWheelSpeedsFromVector(float* vec) {
+   float HardTurnOnAngleThreshold = 0.1745; //10.0 deg
+   float SoftTurnOnAngleThreshold = 1.2217; //70.0 deg
+   float NoTurnAngleThreshold = 1.57; //90.0 deg
+   float MaxSpeed = 20.0;
+   /* Get the heading angle */
    //CRadians cHeadingAngle = c_heading.Angle().SignedNormalize();
-   //float cHeadingAngle = atan2 (c_heading[1],c_heading[0]);
-   float cHeadingAngle =cHeadingAngle/2;
+   float cHeadingAngle = atan2 (vec[1],vec[0]);
+   WrapValue(&cHeadingAngle);
    /* Get the length of the heading vector */
-   float fHeadingLength = c_heading[0]*c_heading[0]+c_heading[1]*c_heading[1];
+   float fHeadingLength = vec[0]*vec[0]+vec[1]*vec[1];
    //fHeadingLength = sqrt(fHeadingLength);
    /* Clamp the speed so that it's not greater than MaxSpeed */
    float fBaseAngularWheelSpeed = MIN((float)fHeadingLength, (float)MaxSpeed);
@@ -79,7 +85,7 @@ void SetWheelSpeedsFromVector(float* c_heading) {
    }
 
    /* Wheel speeds based on current turning state */
-   float fSpeed1, fSpeed2;
+   float fSpeed1 = 0 , fSpeed2 = 0;
    switch(TurningMechanism) {
       case 0: {
          /* Just go straight */
