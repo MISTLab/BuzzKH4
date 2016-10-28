@@ -1,0 +1,21 @@
+function init() {
+} 
+
+function step() {
+           
+	if(camera_blob[3] < 500) {
+	   set_wheels(5.0, 0.0)
+	     }
+	  else {
+	    # Pick the first object you see and rotate to center it
+	    if(camera_blob[1] > 148)
+	 	set_wheels(0.0,5.0)     
+	    else if(camera_blob[1] < 148)
+		set_wheels(5.0,0.0)	      
+		
+	  }
+	}
+
+
+function destroy() {
+}

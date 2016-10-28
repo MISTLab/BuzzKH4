@@ -4,6 +4,7 @@
 #include "buzz_utility.h"
 #include "buzzkh4_closures.h"
 #include <buzz/buzzdebug.h>
+#include "kh4_camera.h"
 
 #include <stdlib.h>
 #include <string.h>
@@ -28,21 +29,32 @@ static int         MSG_SIZE        = -1;
 static int         TCP_LIST_STREAM = -1;
 static int         TCP_COMM_STREAM = -1;
 static uint8_t*    STREAM_SEND_BUF = NULL;
+static int         blob_pos[3];
+static int         enable_cam=0;
 
 #define TCP_LIST_STREAM_PORT "24580"
-#define IDOFFSET 2
+#define IDOFFSET 0
 
 /* Pointer to a function that sends a message on the stream */
 static void (*STREAM_SEND)() = NULL;
-
+int buzzutility_enable_camera(buzzvm_t vm);
 /* PThread handle to manage incoming messages */
 static pthread_t INCOMING_MSG_THREAD;
+/* PThread handle to manage blob center */
+static pthread_t blob_manage;
 
+void set_enable_cam(int cam_enable);
+
+int get_enable_cam();
 /****************************************/
 /****************************************/
 
 /* PThread mutex to manage the list of incoming packets */
 static pthread_mutex_t INCOMING_PACKET_MUTEX;
+/*MUtex for camera*/
+static pthread_mutex_t camera_mutex;
+/*MUtex for camera enable*/
+static pthread_mutex_t camera_enable_mutex;
 
 /* List of packets received over the stream */
 struct incoming_packet_s {
@@ -280,14 +292,20 @@ static int buzz_register_hooks() {
    buzzvm_pushs(VM,  buzzvm_string_register(VM, "print", 1));
    buzzvm_pushcc(VM, buzzvm_function_register(VM, buzzkh4_print));
    buzzvm_gstore(VM);
-buzzvm_pushs(VM,  buzzvm_string_register(VM, "log", 1));
-buzzvm_pushcc(VM, buzzvm_function_register(VM, buzzkh4_print));
-buzzvm_gstore(VM);
+   buzzvm_pushs(VM,  buzzvm_string_register(VM, "log", 1));
+   buzzvm_pushcc(VM, buzzvm_function_register(VM, buzzkh4_print));
+   buzzvm_gstore(VM);
    buzzvm_pushs(VM,  buzzvm_string_register(VM, "set_wheels", 1));
    buzzvm_pushcc(VM, buzzvm_function_register(VM, buzzkh4_set_wheels));
    buzzvm_gstore(VM);
    buzzvm_pushs(VM,  buzzvm_string_register(VM, "set_leds", 1));
    buzzvm_pushcc(VM, buzzvm_function_register(VM, buzzkh4_set_leds));
+   buzzvm_gstore(VM);
+   buzzvm_pushs(VM, buzzvm_string_register(VM, "goto", 1));
+   buzzvm_pushcc(VM, buzzvm_function_register(VM, BuzzGoTo));
+   buzzvm_gstore(VM);
+   buzzvm_pushs(VM,  buzzvm_string_register(VM, "enable_camera", 1));
+   buzzvm_pushcc(VM, buzzvm_function_register(VM, buzzutility_enable_camera));
    buzzvm_gstore(VM);
    return BUZZVM_STATE_READY;
 }
@@ -467,6 +485,11 @@ void buzz_script_step() {
     */
    buzzkh4_update_battery(VM);
    buzzkh4_update_ir(VM);
+
+   pthread_mutex_lock(&camera_mutex);
+   buzzkh4_camera_updateblob(VM,blob_pos);
+   pthread_mutex_unlock(&camera_mutex);
+
    /*
     * Call Buzz step() function
     */
@@ -553,6 +576,12 @@ void buzz_script_destroy() {
    /* Cancel thread */
    pthread_cancel(INCOMING_MSG_THREAD);
    pthread_join(INCOMING_MSG_THREAD, NULL);
+   /*camera thread*/   
+   pthread_cancel(blob_manage);
+   pthread_join(blob_manage, NULL);
+   
+   stop_camera();
+   
    /* Get rid of stream buffer */
    free(STREAM_SEND_BUF);
    /* Get rid of virtual machine */
@@ -580,3 +609,51 @@ int buzz_script_done() {
 
 /****************************************/
 /****************************************/
+
+void* camera_thread(void *args){
+int* blob;
+   while(1){
+      int cam_enable=get_enable_cam();
+      if(cam_enable == 1){   
+      blob = get_blob_pos();
+      pthread_mutex_lock(&camera_mutex);
+      blob_pos[0] =blob[0];
+      blob_pos[1] =blob[1];
+      blob_pos[2] =blob[2];
+      pthread_mutex_unlock(&camera_mutex);
+      }
+   }
+
+
+}
+/**************************************************/
+/*************************************************/
+void camera_routine(){
+    initialize_camera();
+   
+   pthread_create(&blob_manage, NULL, &camera_thread, NULL);
+   
+   
+}
+int buzzutility_enable_camera(buzzvm_t vm){
+   buzzvm_lnum_assert(vm, 1);
+   buzzvm_lload(vm, 1); /* 0 disable 1 enable */
+   buzzvm_type_assert(vm, 1, BUZZTYPE_INT);
+   set_enable_cam(buzzvm_stack_at(vm, 1)->i.value);
+   printf("enablecam_val = \n, buzz returned value = \n");
+   return buzzvm_ret0(vm);
+}
+
+void set_enable_cam(int cam_enable){
+	pthread_mutex_lock(&camera_enable_mutex);
+	enable_cam=cam_enable;
+	pthread_mutex_unlock(&camera_enable_mutex);
+}
+
+int get_enable_cam(){
+	int cam_enable;	
+	pthread_mutex_lock(&camera_enable_mutex);
+	cam_enable=enable_cam;
+	pthread_mutex_unlock(&camera_enable_mutex);
+return cam_enable;
+}
