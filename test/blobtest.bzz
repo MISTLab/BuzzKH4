@@ -1,21 +1,29 @@
 function init() {
-} 
+# To enable camera set it to 1 and to disable 0
+enable_camera(1)
+}
 
 function step() {
-           
+        a=0
 	if(camera_blob[3] < 500) {
-	   set_wheels(5.0, 0.0)
-	     }
-	  else {
-	    # Pick the first object you see and rotate to center it
-	    if(camera_blob[1] > 148)
-	 	set_wheels(0.0,5.0)     
-	    else if(camera_blob[1] < 148)
-		set_wheels(5.0,0.0)	      
-		
-	  }
-	}
+           set_wheels(5.0, 0.0)
+             }
+          else {
+            # Pick the first object you see and rotate to center it
+            if((camera_blob[1] > 190) and  (a==0))
+                set_wheels(5.0,0.0)
+            else if((camera_blob[1] < 100) and (a==0))
+                set_wheels(0.0,5.0)
+            else{
+                print("colour is 1 for green and 2 for blue:  ",camera_blob[4])
+                set_wheels(0.0,0.0)
+                a=1
+                }
+          }
+ #print( "blob info from 1 to 4",camera_blob[1],"   ",camera_blob[2],"   ",camera_blob[3],"   ",camera_blob[4])
+}
 
 
 function destroy() {
 }
+

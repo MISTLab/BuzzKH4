@@ -65,7 +65,7 @@ void SetWheelSpeedsFromVector(float* vec) {
    WrapValue(&cHeadingAngle);
    /* Get the length of the heading vector */
    float fHeadingLength = vec[0]*vec[0]+vec[1]*vec[1];
-   //fHeadingLength = sqrt(fHeadingLength);
+   fHeadingLength = sqrt(fHeadingLength);
    /* Clamp the speed so that it's not greater than MaxSpeed */
    float fBaseAngularWheelSpeed = MIN((float)fHeadingLength, (float)MaxSpeed);
 
@@ -249,6 +249,11 @@ int buzzkh4_camera_updateblob(buzzvm_t vm, int* blob){
    buzzvm_dup(vm);
    buzzvm_pushi(vm, 3);
    buzzvm_pushi(vm, blob[2]);
+   buzzvm_tput(vm);
+   // push blob size
+   buzzvm_dup(vm);
+   buzzvm_pushi(vm, 4);
+   buzzvm_pushi(vm, blob[3]);
    buzzvm_tput(vm);
 
    buzzvm_gstore(vm);

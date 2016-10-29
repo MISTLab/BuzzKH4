@@ -5,10 +5,12 @@
 #include <limits.h>
 #include "kh4_utility.h"
 
-    int SELECTED_COLOR[] = {101,127,80}; // color detection R, G, B
+
+    int SELECTED_COLOR[] = {51,60,65}; // color detection R, G, B
 	int DETECTION_THRESHOLD = 30; // color detection threshold
+	int DETECTION_THRESHOLD1 = 28;
 	int ret,x,y,i,quitr=0,r,g,b,t;
-	int center[3];
+	int center[4];
 	unsigned int dWidth=296;	// image width (max 752)
 	unsigned int dHeight=196; // image height  (max 480)
 	
@@ -63,12 +65,34 @@ void initialize_camera(){
 	
 
 }
+int find_colour(int min, int max, unsigned char* out){
+	int i=0;
+    int blue=0;
+    int green=0;
+for(i=min;i<max;i++){
+if(out[i]==1){
+ green++;
+}
+else if (out[i]==2){
+ blue++;	
+}
+}
+printf("blue : %d green: %d \n",blue, green);
+i = 0;
+if(green > blue){
+	i=1;
+}
+else if(blue > green ){
+    i=2;	
+}
+return i;
+}
 int* get_blob_pos(){
 
 		
 	
-		int maxBlobMass  =50000;
-  		int minBlobMass  =100;
+		//int maxBlobMass  =50000;
+  		//int minBlobMass  =100;
   		t = clock();
   		int out_counter=0;
   		printf("before obatining image\n");
@@ -81,8 +105,8 @@ int* get_blob_pos(){
 	  	  t = clock() - t;
 		  // find positions of pixels having a similar color	
 	  	  
-	  	    	  
-
+	  	    	  //printf("camera Processing\n");
+	  	  		printf("pixel R : %d ,  G : %d   ,  B  : %d \n",buffer[100+100*dWidth],buffer[100+100*dWidth+1],buffer[100+100*dWidth+2] );
 				for (y=0; y<dHeight;y++)
 				{
 					for (x=0; x<dWidth;x++)
@@ -90,29 +114,37 @@ int* get_blob_pos(){
 						i=3*(x+y*dWidth); // compute array index
 						out_counter=x+y*dWidth;
 						ret=0;
-						if ( (buffer[i+1]> buffer[i]*(1+DETECTION_THRESHOLD/100.0)) && (buffer[i+1]> buffer[i+2]*(1+DETECTION_THRESHOLD/100.0)) )	
-							ret=1;
 					
 						
-					/*	
+						if ( (buffer[i+1]> buffer[i]*(1+DETECTION_THRESHOLD/100.0)) && (buffer[i+1]> buffer[i+2]*(1+DETECTION_THRESHOLD/100.0)) )	
+							ret=1;
+							//printf("green\n");
+						
+					    
+						
 							// if in R range
 							if ( ((buffer[i]>(1-DETECTION_THRESHOLD/100.0)*SELECTED_COLOR[0]) &&  (buffer[i]<(1+DETECTION_THRESHOLD/100.0)*SELECTED_COLOR[0]))
 						   // and in G range
 						  && ((buffer[i+1]>(1-DETECTION_THRESHOLD/100.0)*SELECTED_COLOR[1]) &&  (buffer[i+1]<(1+DETECTION_THRESHOLD/100.0)*SELECTED_COLOR[1]))
 							// and in B range
 							 && ((buffer[i+2]>(1-DETECTION_THRESHOLD/100.0)*SELECTED_COLOR[2]) &&  (buffer[i+2]<(1+DETECTION_THRESHOLD/100.0)*SELECTED_COLOR[2])) )
-							 	ret=1;
-					*/	
+							 	ret=2;
+						
 							
 		 
-						if (ret) 
+						if (ret==1) 
 						{	
 							output_buff[out_counter]=1; //foreground
 							//output_buff[i]=buffer[i];
 							//output_buff[i+1]=buffer[i+1];  	 // forground 
 							//output_buff[i+2]=buffer[i+2]; 
 							
-						} else
+						} 
+						else if (ret ==2) {
+							output_buff[out_counter]=2;
+							//printf("blue\n");
+						}
+						else
 						{
 							//output_buff[i]=255;
 							//output_buff[i+1]=255;  	 // forground 
@@ -149,7 +181,7 @@ int* get_blob_pos(){
 				for (x=0; x<dWidth;x++) //start from second column and ignore last column
 				{
 					labelBuffer[srcPtr] = 0;
-					if (output_buff[srcPtr] == 1)
+					if (output_buff[srcPtr] == 1 || output_buff[srcPtr] == 2 )
 					{
 						//printf("inside check\n");
 						//out_counter=x+y*dWidth;
@@ -254,7 +286,9 @@ int* get_blob_pos(){
 			center[0]=xMinTable[max_blobnumber]+center[0];
 			center[1]=yMinTable[max_blobnumber]+center[1];
 			center[2]=max_blobsize;
-			printf("center for x:  %d , center for y: %d , blob size : %d \n",center[0],center[1], center[2]);
+
+			center[3]=find_colour(xMinTable[max_blobnumber]+yMinTable[max_blobnumber]*dWidth, xMaxTable[max_blobnumber]+yMaxTable[max_blobnumber]*dWidth, output_buff);
+			printf("center for x:  %d , center for y: %d , blob size : %d, blob colour : %d \n",center[0],center[1], center[2], center[3]);
 			//printf("R : %d G  : %d B : %d \n",buffer[(center[0]+center[1])*3],buffer[(center[0]+center[1]+1)*3],buffer[(center[0]+center[1]+2)*3]);
 			for ( i=label-1 ; i>0 ; i--)
 			{
@@ -281,3 +315,4 @@ void stop_camera(){
 	// releasing camera
 	kb_camera_release();
 }
+

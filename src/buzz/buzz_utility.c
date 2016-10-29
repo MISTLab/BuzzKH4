@@ -29,7 +29,7 @@ static int         MSG_SIZE        = -1;
 static int         TCP_LIST_STREAM = -1;
 static int         TCP_COMM_STREAM = -1;
 static uint8_t*    STREAM_SEND_BUF = NULL;
-static int         blob_pos[3];
+static int         blob_pos[4];
 static int         enable_cam=0;
 
 #define TCP_LIST_STREAM_PORT "24580"
@@ -620,6 +620,7 @@ int* blob;
       blob_pos[0] =blob[0];
       blob_pos[1] =blob[1];
       blob_pos[2] =blob[2];
+      blob_pos[3] =blob[3];
       pthread_mutex_unlock(&camera_mutex);
       }
    }
