@@ -77,7 +77,7 @@ else if (out[i]==2){
  blue++;	
 }
 }
-printf("blue : %d green: %d \n",blue, green);
+//printf("blue : %d green: %d \n",blue, green);
 i = 0;
 if(green > blue){
 	i=1;
@@ -95,7 +95,7 @@ int* get_blob_pos(){
   		//int minBlobMass  =100;
   		t = clock();
   		int out_counter=0;
-  		printf("before obatining image\n");
+  		//printf("before obatining image\n");
 		  if ((ret=kb_frameRead(buffer))<0)
 	  	{
 	  		fprintf(stderr,"ERROR: frame capture error %d!\r\n",ret);
@@ -106,7 +106,7 @@ int* get_blob_pos(){
 		  // find positions of pixels having a similar color	
 	  	  
 	  	    	  //printf("camera Processing\n");
-	  	  		printf("pixel R : %d ,  G : %d   ,  B  : %d \n",buffer[100+100*dWidth],buffer[100+100*dWidth+1],buffer[100+100*dWidth+2] );
+	  	  		//printf("pixel R : %d ,  G : %d   ,  B  : %d \n",buffer[100+100*dWidth],buffer[100+100*dWidth+1],buffer[100+100*dWidth+2] );
 				for (y=0; y<dHeight;y++)
 				{
 					for (x=0; x<dWidth;x++)

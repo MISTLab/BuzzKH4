@@ -1,10 +1,11 @@
 function init() {
 # To enable camera set it to 1 and to disable 0
 enable_camera(1)
+a=0
 }
 
 function step() {
-        a=0
+        
 	if(camera_blob[3] < 500) {
            set_wheels(5.0, 0.0)
              }
