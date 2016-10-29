@@ -45,11 +45,14 @@ void kh4_setup() {
 /****************************************/
 
 void kh4_done() {
+//printf("HERE1");
    /* Stop wheels */
    kh4_set_speed(0, 0, DSPIC);
    /* Set motors to idle */
+//printf("HERE3");
    kh4_SetMode(kh4RegIdle, DSPIC);
    /* Clear rgb leds because they consume energy */
+//printf("HERE2");
    kh4_SetRGBLeds(0, 0, 0, 0, 0, 0, 0, 0, 0, DSPIC);
    fprintf(stdout, "Robot stopped.\n");
 }

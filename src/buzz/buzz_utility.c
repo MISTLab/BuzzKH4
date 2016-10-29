@@ -573,14 +573,18 @@ void buzz_script_step() {
 /****************************************/
 
 void buzz_script_destroy() {
+//printf("buzz_script_destroy\n");
    /* Cancel thread */
    pthread_cancel(INCOMING_MSG_THREAD);
    pthread_join(INCOMING_MSG_THREAD, NULL);
-   /*camera thread*/   
+   /*camera thread*/
+//printf("PRECANCEL\n");
    pthread_cancel(blob_manage);
+//printf("PREJOIN\n");
    pthread_join(blob_manage, NULL);
-   
+//printf("AFTERJOIN\n");
    stop_camera();
+//printf("STOPCAM\n");
    
    /* Get rid of stream buffer */
    free(STREAM_SEND_BUF);
@@ -614,14 +618,17 @@ void* camera_thread(void *args){
 int* blob;
    while(1){
       int cam_enable=get_enable_cam();
+      pthread_testcancel();
       if(cam_enable == 1){   
       blob = get_blob_pos();
+      pthread_testcancel();
       pthread_mutex_lock(&camera_mutex);
       blob_pos[0] =blob[0];
       blob_pos[1] =blob[1];
       blob_pos[2] =blob[2];
       blob_pos[3] =blob[3];
       pthread_mutex_unlock(&camera_mutex);
+      pthread_testcancel();
       }
    }
 

@@ -55,10 +55,11 @@ void WrapValue(float *t_value) {
 }
 
 void SetWheelSpeedsFromVector(float* vec) {
-   float HardTurnOnAngleThreshold = 0.1745; //10.0 deg
+   float HardTurnOnAngleThreshold = 1.57; //90.0 deg
    float SoftTurnOnAngleThreshold = 1.2217; //70.0 deg
-   float NoTurnAngleThreshold = 1.57; //90.0 deg
+   float NoTurnAngleThreshold = 0.1745; //10.0 deg
    float MaxSpeed = 20.0;
+//printf("Got (%.2f,%.2f), turning is %i\n", vec[0], vec[1], TurningMechanism);
    /* Get the heading angle */
    //CRadians cHeadingAngle = c_heading.Angle().SignedNormalize();
    float cHeadingAngle = atan2 (vec[1],vec[0]);
@@ -66,21 +67,26 @@ void SetWheelSpeedsFromVector(float* vec) {
    /* Get the length of the heading vector */
    float fHeadingLength = vec[0]*vec[0]+vec[1]*vec[1];
    fHeadingLength = sqrt(fHeadingLength);
+//printf("Compute distance %.2f and angle %.2f\n", fHeadingLength, cHeadingAngle);
    /* Clamp the speed so that it's not greater than MaxSpeed */
    float fBaseAngularWheelSpeed = MIN((float)fHeadingLength, (float)MaxSpeed);
+//printf("fBaseAngularWheelSpeed = %.2f\n", fBaseAngularWheelSpeed);
 
    /* Turning state switching conditions */
-   if(abs(cHeadingAngle) <= NoTurnAngleThreshold) {
+   if(fabs(cHeadingAngle) <= NoTurnAngleThreshold) {
       /* No Turn, heading angle very small */
+//printf("HERE1\n");
       TurningMechanism = 0;
    }
-   else if(abs(cHeadingAngle) > HardTurnOnAngleThreshold) {
+   else if(fabs(cHeadingAngle) > HardTurnOnAngleThreshold) {
       /* Hard Turn, heading angle very large */
+//printf("HERE2\n");
       TurningMechanism = 2;
    }
    else if(TurningMechanism == 0 &&
-           abs(cHeadingAngle) > SoftTurnOnAngleThreshold) {
+           fabs(cHeadingAngle) > SoftTurnOnAngleThreshold) {
       /* Soft Turn, heading angle in between the two cases */
+//printf("HERE3\n");
       TurningMechanism = 1;
    }
 
@@ -123,6 +129,7 @@ void SetWheelSpeedsFromVector(float* vec) {
       fRightWheelSpeed = fSpeed1;
    }
    /* Finally, set the wheel speeds */
+//printf("Sending %.2f - %.2f to the wheels (%i)\n",fLeftWheelSpeed, fRightWheelSpeed, TurningMechanism);
   kh4_set_speed(fLeftWheelSpeed, fRightWheelSpeed,DSPIC);
 }
 /****************************************/
@@ -139,7 +146,7 @@ int BuzzGoTo(buzzvm_t vm) {
    vect[1]=buzzvm_stack_at(vm, 1)->f.value;
    //CVector2 cDir(buzzvm_stack_at(vm, 2)->f.value,
    //              buzzvm_stack_at(vm, 1)->f.value);
-   buzzvm_gload(vm);
+   //buzzvm_gload(vm);
    SetWheelSpeedsFromVector(vect);
    return buzzvm_ret0(vm);
 }
