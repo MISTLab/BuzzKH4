@@ -457,7 +457,7 @@ void buzz_script_step() {
          if(msgsz > 0 && msgsz <= MSG_SIZE - tot) {
             /* Append message to the Buzz input message queue */
             buzzinmsg_queue_append(
-               VM->inmsgs,
+               VM,
                buzzmsg_payload_frombuffer(pl + tot, msgsz));
             tot += msgsz;
             /* fprintf(stderr, "[DEBUG]    appended message, tot = %zu\n", tot); */
@@ -517,9 +517,9 @@ void buzz_script_step() {
       //fprintf(stdout,"sending neighbors position: %.2f,%.2f,%.2f\n",x,y,t);
    do {
       /* Are there more messages? */
-      if(buzzoutmsg_queue_isempty(VM->outmsgs)) break;
+      if(buzzoutmsg_queue_isempty(VM)) break;
       /* Get first message */
-      buzzmsg_payload_t m = buzzoutmsg_queue_first(VM->outmsgs);
+      buzzmsg_payload_t m = buzzoutmsg_queue_first(VM);
       /* Make sure it fits the data buffer */
       if(tot + buzzmsg_payload_size(m) + sizeof(uint16_t)
          >
@@ -540,7 +540,7 @@ void buzz_script_step() {
       fprintf(stderr, "[DEBUG] send before sz = %u\n",
                *(uint16_t*)(STREAM_SEND_BUF + 2));
       /* Get rid of message */
-      buzzoutmsg_queue_next(VM->outmsgs);
+      buzzoutmsg_queue_next(VM);
       buzzmsg_payload_destroy(&m);
    } while(1);
    /* fprintf(stderr, "[DEBUG] send id = %u, sz = %u\n", */
