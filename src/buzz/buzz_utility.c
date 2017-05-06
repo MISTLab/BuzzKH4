@@ -4,8 +4,8 @@
 #include "buzz_utility.h"
 #include "buzzkh4_closures.h"
 #include <buzz/buzzdebug.h>
-#include "kh4_camera.h"
-
+//#include "kh4_camera.h"
+#include "buzz_update.h"
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
@@ -23,38 +23,39 @@
 
 static buzzvm_t    VM              = 0;
 static char*       BO_FNAME        = 0;
+static char* 	   DBG_FNAME	   =0;
 static uint8_t*    BO_BUF          = 0;
 static buzzdebug_t DBG_INFO        = 0;
 static int         MSG_SIZE        = -1;
 static int         TCP_LIST_STREAM = -1;
 static int         TCP_COMM_STREAM = -1;
 static uint8_t*    STREAM_SEND_BUF = NULL;
-static int         blob_pos[4];
-static int         enable_cam=0;
+//static int         blob_pos[4];
+//static int         enable_cam=0;
 
 #define TCP_LIST_STREAM_PORT "24580"
 #define IDOFFSET 0
 
 /* Pointer to a function that sends a message on the stream */
 static void (*STREAM_SEND)() = NULL;
-int buzzutility_enable_camera(buzzvm_t vm);
+//int buzzutility_enable_camera(buzzvm_t vm);
 /* PThread handle to manage incoming messages */
 static pthread_t INCOMING_MSG_THREAD;
 /* PThread handle to manage blob center */
-static pthread_t blob_manage;
+//static pthread_t blob_manage;
 
-void set_enable_cam(int cam_enable);
+//void set_enable_cam(int cam_enable);
 
-int get_enable_cam();
+//int get_enable_cam();
 /****************************************/
 /****************************************/
 
 /* PThread mutex to manage the list of incoming packets */
 static pthread_mutex_t INCOMING_PACKET_MUTEX;
 /*MUtex for camera*/
-static pthread_mutex_t camera_mutex;
+//static pthread_mutex_t camera_mutex;
 /*MUtex for camera enable*/
-static pthread_mutex_t camera_enable_mutex;
+//static pthread_mutex_t camera_enable_mutex;
 
 /* List of packets received over the stream */
 struct incoming_packet_s {
@@ -260,12 +261,14 @@ int buzz_listen(const char* type,
    return 0;
 }
 
-/****************************************/
-/****************************************/
 
+/****************************************/
+/****************************************/
+//TODO check this out
 static const char* buzz_error_info() {
-   buzzdebug_entry_t dbg = *buzzdebug_info_get_fromoffset(DBG_INFO, &VM->pc);
-   char* msg;
+ char* msg;
+  /* buzzdebug_entry_t dbg = *buzzdebug_info_get_fromoffset(DBG_INFO, &VM->pc);
+   
    if(dbg != NULL) {
       asprintf(&msg,
                "%s: execution terminated abnormally at %s:%" PRIu64 ":%" PRIu64 " : %s\n\n",
@@ -281,7 +284,7 @@ static const char* buzz_error_info() {
                BO_FNAME,
                VM->pc,
                VM->errormsg);
-   }
+   }*/
    return msg;
 }
 
@@ -304,9 +307,34 @@ static int buzz_register_hooks() {
    buzzvm_pushs(VM, buzzvm_string_register(VM, "goto", 1));
    buzzvm_pushcc(VM, buzzvm_function_register(VM, BuzzGoTo));
    buzzvm_gstore(VM);
-   buzzvm_pushs(VM,  buzzvm_string_register(VM, "enable_camera", 1));
-   buzzvm_pushcc(VM, buzzvm_function_register(VM, buzzutility_enable_camera));
+   //buzzvm_pushs(VM,  buzzvm_string_register(VM, "enable_camera", 1));
+   //buzzvm_pushcc(VM, buzzvm_function_register(VM, dummy_closure));//TODO replaced with dummy closure
+   //buzzvm_gstore(VM);
+   return BUZZVM_STATE_READY;
+}
+
+/****************************************/
+/****************************************/
+
+static int testing_buzz_register_hooks() {
+   buzzvm_pushs(VM,  buzzvm_string_register(VM, "print", 1));
+   buzzvm_pushcc(VM, buzzvm_function_register(VM, buzzkh4_print));
    buzzvm_gstore(VM);
+   buzzvm_pushs(VM,  buzzvm_string_register(VM, "log", 1));
+   buzzvm_pushcc(VM, buzzvm_function_register(VM, buzzkh4_print));
+   buzzvm_gstore(VM);
+   buzzvm_pushs(VM,  buzzvm_string_register(VM, "set_wheels", 1));
+   buzzvm_pushcc(VM, buzzvm_function_register(VM, dummy_closure));
+   buzzvm_gstore(VM);
+   buzzvm_pushs(VM,  buzzvm_string_register(VM, "set_leds", 1));
+   buzzvm_pushcc(VM, buzzvm_function_register(VM, dummy_closure));
+   buzzvm_gstore(VM);
+   buzzvm_pushs(VM, buzzvm_string_register(VM, "goto", 1));
+   buzzvm_pushcc(VM, buzzvm_function_register(VM, dummy_closure));
+   buzzvm_gstore(VM);
+   //buzzvm_pushs(VM,  buzzvm_string_register(VM, "enable_camera", 1));
+   //buzzvm_pushcc(VM, buzzvm_function_register(VM, dummy_closure));
+   //buzzvm_gstore(VM);
    return BUZZVM_STATE_READY;
 }
 
@@ -368,12 +396,125 @@ int buzz_script_set(const char* bo_filename,
    }
    /* Save bytecode file name */
    BO_FNAME = strdup(bo_filename);
+   DBG_FNAME = strdup(bdbg_filename);
    /* Execute the global part of the script */
    buzzvm_execute_script(VM);
    /* Call the Init() function */
    buzzvm_function_call(VM, "init", 0);
    /* All OK */
    return 1;
+}
+
+/****************************************/
+/*Sets a new update    :TODO multiple functions with same code reduce to 1*/
+/****************************************/
+int buzz_update_set(uint8_t* UP_BO_BUF, const char* bdbg_filename,size_t bcode_size){
+/* Get hostname */
+char hstnm[30];
+gethostname(hstnm, 30);
+int id = strtol(hstnm + 1, NULL, 10) + IDOFFSET;	//CHANGES FOR OFFROBOTS TESTS!!!!
+// Reset the Buzz VM
+if(VM) buzzvm_destroy(&VM);
+VM = buzzvm_new(id);
+// Get rid of debug info
+if(DBG_INFO) buzzdebug_destroy(&DBG_INFO);
+DBG_INFO = buzzdebug_new();
+
+// Read debug information
+if(!buzzdebug_fromfile(DBG_INFO, DBG_FNAME)) {
+	buzzvm_destroy(&VM);
+	buzzdebug_destroy(&DBG_INFO);
+	perror(DBG_FNAME);
+	return 0;
+ }
+//BO_BUF = (uint8_t*)malloc(bcode_size);
+//memcpy(UP_BO_BUF, BO_BUF, bcode_size);
+// Set byte code
+if(buzzvm_set_bcode(VM, UP_BO_BUF, bcode_size) != BUZZVM_STATE_READY) {
+	buzzvm_destroy(&VM);
+	buzzdebug_destroy(&DBG_INFO);
+	fprintf(stdout, "%s: Error loading Buzz script\n\n", BO_FNAME);
+	return 0;
+ }
+// Register hook functions
+if(buzz_register_hooks() != BUZZVM_STATE_READY) {
+	buzzvm_destroy(&VM);
+	buzzdebug_destroy(&DBG_INFO);
+	fprintf(stdout, "%s: Error registering hooks\n\n", BO_FNAME);
+	return 0;
+}
+
+// Execute the global part of the script
+buzzvm_execute_script(VM);
+// Call the Init() function
+buzzvm_function_call(VM, "init", 0);
+// All OK
+return 1;
+}
+
+/****************************************/
+/*Performs a initialization test        */
+/****************************************/
+int buzz_update_init_test(uint8_t* UP_BO_BUF, const char* bdbg_filename,size_t bcode_size){
+/* Get hostname */
+char hstnm[30];
+gethostname(hstnm, 30);
+int id = strtol(hstnm + 1, NULL, 10) + IDOFFSET;	//CHANGES FOR OFFROBOTS TESTS!!!!
+// Reset the Buzz VM
+if(VM) buzzvm_destroy(&VM);
+VM = buzzvm_new(id);
+// Get rid of debug info
+if(DBG_INFO) buzzdebug_destroy(&DBG_INFO);
+DBG_INFO = buzzdebug_new();
+
+// Read debug information
+if(!buzzdebug_fromfile(DBG_INFO, DBG_FNAME)) {
+	buzzvm_destroy(&VM);
+	buzzdebug_destroy(&DBG_INFO);
+	perror(DBG_FNAME);
+	return 0;
+ }
+// Set byte code
+if(buzzvm_set_bcode(VM, UP_BO_BUF, bcode_size) != BUZZVM_STATE_READY) {
+	buzzvm_destroy(&VM);
+	buzzdebug_destroy(&DBG_INFO);
+	fprintf(stdout, "%s: Error loading Buzz script\n\n", BO_FNAME);
+	return 0;
+ }
+// Register hook functions
+if(testing_buzz_register_hooks() != BUZZVM_STATE_READY) {
+	buzzvm_destroy(&VM);
+	buzzdebug_destroy(&DBG_INFO);
+	fprintf(stdout, "%s: Error registering hooks\n\n", BO_FNAME);
+	return 0;
+}
+
+// Execute the global part of the script
+buzzvm_execute_script(VM);
+// Call the Init() function
+buzzvm_function_call(VM, "init", 0);
+// All OK
+return 1;
+}
+
+/*****************************************/
+/*****************************************/
+
+int update_step_test() {
+   /*
+    * Update sensors
+    */
+   buzzkh4_update_battery(VM);
+   buzzkh4_update_ir(VM);
+
+   int a = buzzvm_function_call(VM, "step", 0);
+	if(a != BUZZVM_STATE_READY) {
+		fprintf(stdout, "step test VM state %i\n",a);
+		fprintf(stdout, " execution terminated abnormally\n\n");
+	}
+	return a == BUZZVM_STATE_READY;
+
+
 }
 
 /****************************************/
@@ -389,29 +530,34 @@ void check_swarm_members(const void* key, void* data, void* params) {
    buzzswarm_elem_t e = *(buzzswarm_elem_t*)data;
    int* status = (int*)params;
    if(*status == 3) return;
+   fprintf(stderr, "CHECKING SWARM MEMBERS:%i\n",buzzdarray_get(e->swarms, 0, uint16_t));
    if(buzzdarray_size(e->swarms) != 1) {
       fprintf(stderr, "Swarm list size is not 1\n");
       *status = 3;
    }
    else {
       int sid = 1;
-      if(*buzzdict_get(VM->swarms, &sid, uint8_t) &&
-         buzzdarray_get(e->swarms, 0, uint16_t) != sid) {
-         fprintf(stderr, "I am in swarm #%d and neighbor is in %d\n",
-                 sid,
-                 buzzdarray_get(e->swarms, 0, uint16_t));
-         *status = 3;
-         return;
-      }
-      sid = 2;
-      if(*buzzdict_get(VM->swarms, &sid, uint8_t) &&
-         buzzdarray_get(e->swarms, 0, uint16_t) != sid) {
-         fprintf(stderr, "I am in swarm #%d and neighbor is in %d\n",
-                 sid,
-                 buzzdarray_get(e->swarms, 0, uint16_t));
-         *status = 3;
-         return;
-      }
+      if(!buzzdict_isempty(VM->swarms)) {
+        if(*buzzdict_get(VM->swarms, &sid, uint8_t) &&
+           buzzdarray_get(e->swarms, 0, uint16_t) != sid) {
+           fprintf(stderr, "I am in swarm #%d and neighbor is in %d\n",
+                   sid,
+                   buzzdarray_get(e->swarms, 0, uint16_t));
+           *status = 3;
+           return;
+         }
+         if(buzzdict_size(VM->swarms)>1) {
+           sid = 2;
+           if(*buzzdict_get(VM->swarms, &sid, uint8_t) &&
+             buzzdarray_get(e->swarms, 0, uint16_t) != sid) {
+             fprintf(stderr, "I am in swarm #%d and neighbor is in %d\n",
+                     sid,
+                     buzzdarray_get(e->swarms, 0, uint16_t));
+             *status = 3;
+             return;
+            }
+          }
+       }
    }
 }
 
@@ -439,6 +585,17 @@ void buzz_script_step() {
       tot += sizeof(float);
       memcpy(&t, pl+tot, sizeof(float));
       tot += sizeof(float);
+      /*if updater message present append it to its queue*/
+      fprintf(stderr, "[DEBUG]received   updater message present = %i\n", *(uint8_t*)(pl+tot)); 
+     if(*(uint8_t*)(pl+tot)){
+	tot +=sizeof(uint8_t);
+	uint16_t upMsgSize = *(uint16_t*)(pl+tot);
+	tot+=sizeof(uint16_t);	
+	code_message_inqueue_append((uint8_t*)(pl+tot),upMsgSize);
+	code_message_inqueue_process();
+	tot+=upMsgSize;
+      }
+      else tot +=sizeof(uint8_t);	
       //fprintf(stdout,"got neighbors position: %.2f,%.2f,%.2f\n",x,y,t);
       buzzneighbors_add(VM, PACKETS_FIRST->id, x, y, t);
       /* Go through the payload and extract the messages */
@@ -486,9 +643,9 @@ void buzz_script_step() {
    buzzkh4_update_battery(VM);
    buzzkh4_update_ir(VM);
 
-   pthread_mutex_lock(&camera_mutex);
-   buzzkh4_camera_updateblob(VM,blob_pos);
-   pthread_mutex_unlock(&camera_mutex);
+   //pthread_mutex_lock(&camera_mutex);
+   //buzzkh4_camera_updateblob(VM,blob_pos);
+   //pthread_mutex_unlock(&camera_mutex);
 
    /*
     * Call Buzz step() function
@@ -504,17 +661,45 @@ void buzz_script_step() {
     */
    /* Prepare buffer */
    memset(STREAM_SEND_BUF, 0, MSG_SIZE);
+   fprintf(stderr, "[DEBUG]msg_size = %i\n", MSG_SIZE); 
    *(uint16_t*)STREAM_SEND_BUF = VM->robot;
+   fprintf(stderr, "[DEBUG]from vm , %i ,rid = %i\n",VM->robot, *(uint16_t*)STREAM_SEND_BUF); 
+   
    ssize_t tot = sizeof(uint16_t);
       /* add local position*/
-      float x=0.0,y=0.11,t=0.0;
-      memcpy(STREAM_SEND_BUF + tot, &x, sizeof(float));
+      float x=0;
+      //memset(STREAM_SEND_BUF + tot, 0, sizeof(float));
+      *(float*) (STREAM_SEND_BUF+tot) = x;
       tot += sizeof(float);
-      memcpy(STREAM_SEND_BUF + tot, &y, sizeof(float));
+      *(float*)(STREAM_SEND_BUF+tot) = x;
       tot += sizeof(float);
-      memcpy(STREAM_SEND_BUF + tot, &t, sizeof(float));
+      *(float*)(STREAM_SEND_BUF+tot) = x;
       tot += sizeof(float);
-      //fprintf(stdout,"sending neighbors position: %.2f,%.2f,%.2f\n",x,y,t);
+      /*if updater message present send it TODO add check for available message size and code size from updater*/
+      if((int)get_update_mode()!=CODE_RUNNING && is_msg_present()==1){
+	uint8_t up_message_present=1;        
+         *(uint8_t*)(STREAM_SEND_BUF+tot) =up_message_present;
+	tot += sizeof(uint8_t);
+	uint16_t updater_msgSize=*(uint16_t*) (getupdate_out_msg_size());
+	fprintf(stdout,"[Debug]Transfering code \n");
+	 *(uint16_t*)(STREAM_SEND_BUF + tot)=updater_msgSize;
+         tot += sizeof(uint16_t);
+	 fprintf(stdout,"[Debug]Updater sent msg size : %i \n", (int)updater_msgSize);
+	 // Append updater msgs
+   	 memcpy(STREAM_SEND_BUF + tot, (uint8_t*)(getupdater_out_msg()), updater_msgSize);
+   	 tot += updater_msgSize;
+         destroy_out_msg_queue();
+      }
+      else{
+         uint8_t up_message_present=0;
+         fprintf(stdout,"[Debug]no update message \n");
+         *(uint8_t*)(STREAM_SEND_BUF+tot) =up_message_present;
+	 fprintf(stderr, "[DEBUG]sent update message present = %i\n", *(uint8_t*)(STREAM_SEND_BUF+tot)); 
+         tot += sizeof(uint8_t);
+      }
+	
+      
+      fprintf(stdout,"sending neighbors position: %.2f,%.2f,%.2f\n",x,x,x);
    do {
       /* Are there more messages? */
       if(buzzoutmsg_queue_isempty(VM)) break;
@@ -555,18 +740,18 @@ void buzz_script_step() {
    buzzvm_process_outmsgs(VM);
    STREAM_SEND();
    /* Sleep */
-   usleep(100000);
+   //usleep(100000);
    /* Print swarm */
    buzzswarm_members_print(stdout, VM->swarmmembers, VM->robot);
    /* Check swarm state */
-   int status = 1;
+  /* int status = 1;
    buzzdict_foreach(VM->swarmmembers, check_swarm_members, &status);
    if(status == 1 &&
       buzzdict_size(VM->swarmmembers) < 9)
       status = 2;
    buzzvm_pushs(VM, buzzvm_string_register(VM, "swarm_status", 1));
    buzzvm_pushi(VM, status);
-   buzzvm_gstore(VM);
+   buzzvm_gstore(VM);*/
 }
 
 /****************************************/
@@ -579,11 +764,11 @@ void buzz_script_destroy() {
    pthread_join(INCOMING_MSG_THREAD, NULL);
    /*camera thread*/
 //printf("PRECANCEL\n");
-   pthread_cancel(blob_manage);
+//   pthread_cancel(blob_manage);
 //printf("PREJOIN\n");
-   pthread_join(blob_manage, NULL);
+//   pthread_join(blob_manage, NULL);
 //printf("AFTERJOIN\n");
-   stop_camera();
+   //stop_camera();
 //printf("STOPCAM\n");
    
    /* Get rid of stream buffer */
@@ -613,14 +798,14 @@ int buzz_script_done() {
 
 /****************************************/
 /****************************************/
-
+/*
 void* camera_thread(void *args){
 int* blob;
    while(1){
       int cam_enable=get_enable_cam();
       pthread_testcancel();
       if(cam_enable == 1){   
-      blob = get_blob_pos();
+      //blob = get_blob_pos();
       pthread_testcancel();
       pthread_mutex_lock(&camera_mutex);
       blob_pos[0] =blob[0];
@@ -633,19 +818,19 @@ int* blob;
    }
 
 
-}
+}*/
 /**************************************************/
 /*************************************************/
-void camera_routine(){
-    initialize_camera();
+/*void camera_routine(){
+  //  initialize_camera();
    
-   pthread_create(&blob_manage, NULL, &camera_thread, NULL);
+  // pthread_create(&blob_manage, NULL, &camera_thread, NULL);
    
    
 }
 int buzzutility_enable_camera(buzzvm_t vm){
    buzzvm_lnum_assert(vm, 1);
-   buzzvm_lload(vm, 1); /* 0 disable 1 enable */
+   buzzvm_lload(vm, 1); // 0 disable 1 enable 
    buzzvm_type_assert(vm, 1, BUZZTYPE_INT);
    set_enable_cam(buzzvm_stack_at(vm, 1)->i.value);
    printf("enablecam_val = \n, buzz returned value = \n");
@@ -653,15 +838,23 @@ int buzzutility_enable_camera(buzzvm_t vm){
 }
 
 void set_enable_cam(int cam_enable){
-	pthread_mutex_lock(&camera_enable_mutex);
+	//pthread_mutex_lock(&camera_enable_mutex);
 	enable_cam=cam_enable;
-	pthread_mutex_unlock(&camera_enable_mutex);
+	//pthread_mutex_unlock(&camera_enable_mutex);
 }
 
 int get_enable_cam(){
 	int cam_enable;	
-	pthread_mutex_lock(&camera_enable_mutex);
+	//pthread_mutex_lock(&camera_enable_mutex);
 	cam_enable=enable_cam;
-	pthread_mutex_unlock(&camera_enable_mutex);
+	//pthread_mutex_unlock(&camera_enable_mutex);
 return cam_enable;
+}*/
+
+buzzvm_t get_vm() {
+return VM;
+}
+
+extern int dummy_closure(buzzvm_t vm){
+return buzzvm_ret0(vm);
 }

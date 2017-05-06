@@ -130,7 +130,7 @@ void SetWheelSpeedsFromVector(float* vec) {
    }
    /* Finally, set the wheel speeds */
 //printf("Sending %.2f - %.2f to the wheels (%i)\n",fLeftWheelSpeed, fRightWheelSpeed, TurningMechanism);
-  kh4_set_speed(fLeftWheelSpeed, fRightWheelSpeed,DSPIC);
+ kh4_set_speed(fLeftWheelSpeed, fRightWheelSpeed,DSPIC);
 }
 /****************************************/
 int BuzzGoTo(buzzvm_t vm) {
@@ -237,7 +237,7 @@ int buzzkh4_update_ir(buzzvm_t vm) {
    buzzvm_gstore(vm);
    return vm->state;
 }
-
+/*
 int buzzkh4_camera_updateblob(buzzvm_t vm, int* blob){
    //int* blob =get_available_blob();
    buzzvm_pushs(vm, buzzvm_string_register(vm, "camera_blob", 1));
@@ -265,7 +265,7 @@ int buzzkh4_camera_updateblob(buzzvm_t vm, int* blob){
 
    buzzvm_gstore(vm);
    return vm->state;
-}
+}*/
 
 
 /****************************************/

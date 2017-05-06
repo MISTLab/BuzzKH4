@@ -33,7 +33,7 @@ extern int buzzkh4_update_battery(buzzvm_t vm);
  */
 extern int buzzkh4_update_ir(buzzvm_t vm);
 
-extern int buzzkh4_camera_updateblob(buzzvm_t vm, int* blob);
+//extern int buzzkh4_camera_updateblob(buzzvm_t vm, int* blob);
 
 extern int BuzzGoTo(buzzvm_t vm);
 #endif
