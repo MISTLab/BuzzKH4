@@ -46,6 +46,10 @@ static pthread_t blob_manage;
 void set_enable_cam(int cam_enable);
 
 int get_enable_cam();
+
+float a_x = 0.0, a_y = 0.0, a_t = 0.0;
+static int ROBOT_ID = -1;
+
 /****************************************/
 /****************************************/
 
@@ -70,12 +74,32 @@ struct incoming_packet_s {
 static struct incoming_packet_s* PACKETS_FIRST = NULL;
 static struct incoming_packet_s* PACKETS_LAST  = NULL;
 
-void incoming_packet_add(int id,
-                         const uint8_t* pl) {
+void incoming_packet_add(int id, const uint8_t* pl) {
    /* Create packet */
+   //check ID
+
+   int robot_id = 0;
+   int tot = sizeof(float) * 3;
+   memcpy(&robot_id, pl+tot,sizeof(int));
+   tot += sizeof(int);
+   if(id == ROBOT_ID){
+      //float ta_x = 0.0, ta_y = 0.0, ta_t = 0.0;
+      memcpy(&a_x, pl+tot, sizeof(float));
+      tot += sizeof(float);
+      memcpy(&a_y, pl+tot, sizeof(float));
+      tot += sizeof(float);
+      memcpy(&a_t, pl+tot, sizeof(float));
+      tot += sizeof(float);
+      //printf("Position: %f, %f, %f, ", ta_x, ta_y, ta_t);
+      //buzzkh4_abs_position(VM, a_x, a_y, a_t);
+      
+      return;
+   }
+
    struct incoming_packet_s* p =
       (struct incoming_packet_s*)malloc(sizeof(struct incoming_packet_s));
    /* Fill in the data */
+   //TODO: check id
    p->id = id;
    p->payload = malloc(MSG_SIZE - sizeof(uint16_t));
    memcpy(p->payload, pl, MSG_SIZE - sizeof(uint16_t));
@@ -124,8 +148,7 @@ void* buzz_stream_incoming_thread_tcp(void* args) {
          /* fprintf(stderr, ", %zd left, %zd tot\n", left, tot); */
       }
       /* Done receiving data, add packet to list */
-      incoming_packet_add(*(uint16_t*)buf,
-                          buf + sizeof(uint16_t));
+      incoming_packet_add(*(uint16_t*)buf, buf + sizeof(uint16_t));
    }
 }
 
@@ -323,10 +346,10 @@ int buzz_script_set(const char* bo_filename,
    gethostname(hstnm, 30);
    /* Make numeric id from hostname */
    /* NOTE: here we assume that the hostname is in the format Knn */
-   int id = strtol(hstnm + 1, NULL, 10) + IDOFFSET;	//CHANGES FOR OFFROBOTS TESTS!!!!
+   ROBOT_ID = strtol(hstnm + 1, NULL, 10) + IDOFFSET;	//CHANGES FOR OFFROBOTS TESTS!!!!
    /* Reset the Buzz VM */
    if(VM) buzzvm_destroy(&VM);
-   VM = buzzvm_new(id);
+   VM = buzzvm_new(ROBOT_ID);
    /* Get rid of debug info */
    if(DBG_INFO) buzzdebug_destroy(&DBG_INFO);
    DBG_INFO = buzzdebug_new();
@@ -432,8 +455,8 @@ void buzz_script_step() {
    while(PACKETS_FIRST) {
       /* Save next packet */
       n = PACKETS_FIRST->next;
-      /* Update Buzz neighbors information */
-      uint8_t* pl = (uint8_t*)PACKETS_FIRST->payload;
+
+      uint8_t* pl = PACKETS_FIRST->payload;
       float x=0.0,y=0.0,t=0.0;
       size_t tot = 0;
       memcpy(&x, pl+tot, sizeof(float));
@@ -442,40 +465,61 @@ void buzz_script_step() {
       tot += sizeof(float);
       memcpy(&t, pl+tot, sizeof(float));
       tot += sizeof(float);
-      //fprintf(stdout,"got neighbors position: %.2f,%.2f,%.2f\n",x,y,t);
-      buzzneighbors_add(VM, PACKETS_FIRST->id, x, y, t);
-      /* Go through the payload and extract the messages */
-      uint16_t msgsz;
-      /* fprintf(stderr, "[DEBUG] Processing packet %p from %d\n",
-               PACKETS_FIRST,
-               PACKETS_FIRST->id);*/
-      /* fprintf(stderr, "[DEBUG] recv sz = %u\n", */
-      /*         *(uint16_t*)pl); */
-      do {
-         /* Get payload size */
-         msgsz = *(uint16_t*)(pl + tot);
-         tot += sizeof(uint16_t);
-         /* fprintf(stderr, "[DEBUG]    msg size = %u, tot = %zu\n", msgsz, tot); */
-         /* Make sure the message payload can be read */
-         if(msgsz > 0 && msgsz <= MSG_SIZE - tot) {
-            /* Append message to the Buzz input message queue */
-            buzzinmsg_queue_append(
-               VM,
-               PACKETS_FIRST->id,
-               buzzmsg_payload_frombuffer(pl + tot, msgsz));
-            tot += msgsz;
-            /* fprintf(stderr, "[DEBUG]    appended message, tot = %zu\n", tot); */
+      //int robot_id = 0;
+      /*
+      memcpy(&robot_id, pl+tot, sizeof(int));
+      tot += sizeof(int);
+      memcpy(&ta_x, pl+tot, sizeof(float));
+      tot += sizeof(float);
+      memcpy(&ta_y, pl+tot, sizeof(float));
+      tot += sizeof(float);
+      memcpy(&ta_t, pl+tot, sizeof(float));
+      tot += sizeof(float);
+
+      if(ROBOT_ID == robot_id){
+         a_x = ta_x;
+         a_y = ta_y;
+         a_t = ta_t;
+         printf("Packet for me, %d \n", robot_id);
+      } 
+      */
+         printf("Packet from others, %d\n", PACKETS_FIRST->id);
+         /* Update Buzz neighbors information */
+         buzzneighbors_add(VM, PACKETS_FIRST->id, x, y, t);
+         /* Go through the payload and extract the messages */
+         uint16_t msgsz;
+         /* fprintf(stderr, "[DEBUG] Processing packet %p from %d\n",
+                  PACKETS_FIRST,
+                  PACKETS_FIRST->id);*/
+         /* fprintf(stderr, "[DEBUG] recv sz = %u\n", */
+         /*         *(uint16_t*)pl); */
+         do {
+            /* Get payload size */
+            msgsz = *(uint16_t*)(pl + tot);
+            tot += sizeof(uint16_t);
+            /* fprintf(stderr, "[DEBUG]    msg size = %u, tot = %zu\n", msgsz, tot); */
+            /* Make sure the message payload can be read */
+            if(msgsz > 0 && msgsz <= MSG_SIZE - tot) {
+               /* Append message to the Buzz input message queue */
+               buzzinmsg_queue_append(
+                  VM,
+                  PACKETS_FIRST->id,
+                  buzzmsg_payload_frombuffer(pl + tot, msgsz));
+               tot += msgsz;
+               /* fprintf(stderr, "[DEBUG]    appended message, tot = %zu\n", tot); */
+            }
          }
-      }
-      while(MSG_SIZE - tot > sizeof(uint16_t) && msgsz > 0);
-      /* Erase packet */
-      /* fprintf(stderr, "[DEBUG] Done processing packet %p from %d\n", */
-      /*         PACKETS_FIRST, */
-      /*         PACKETS_FIRST->id); */
-      free(PACKETS_FIRST->payload);
-      free(PACKETS_FIRST);
-      /* Go to next packet */
-      PACKETS_FIRST = n;
+         while(MSG_SIZE - tot > sizeof(uint16_t) && msgsz > 0);
+         /* Erase packet */
+         /* fprintf(stderr, "[DEBUG] Done processing packet %p from %d\n", */
+         /*         PACKETS_FIRST, */
+         /*         PACKETS_FIRST->id); */
+      
+         free(PACKETS_FIRST->payload);
+         free(PACKETS_FIRST);
+         /* Go to next packet */
+         PACKETS_FIRST = n;
+     
    }
    /* The packet list is now empty */
    PACKETS_LAST = NULL;
@@ -489,6 +533,9 @@ void buzz_script_step() {
     */
    buzzkh4_update_battery(VM);
    buzzkh4_update_ir(VM);
+   buzzkh4_update_ir_filtered(VM);
+   buzzkh4_abs_position(VM, a_x, a_y, a_t);
+
 
    pthread_mutex_lock(&camera_mutex);
    buzzkh4_camera_updateblob(VM,blob_pos);

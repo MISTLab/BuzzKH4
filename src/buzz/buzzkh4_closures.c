@@ -319,6 +319,28 @@ int buzzkh4_update_battery(buzzvm_t vm) {
 /****************************************/
 /****************************************/
 
+int buzzkh4_abs_position(buzzvm_t vm, float x, float y, float theta) {
+   buzzvm_pushs(vm, buzzvm_string_register(vm, "absolute_position", 1));
+   buzzvm_pusht(vm);
+   buzzvm_dup(vm);
+   buzzvm_pushs(vm, buzzvm_string_register(vm, "x", 1));
+   buzzvm_pushf(vm, x);
+   buzzvm_tput(vm);
+   buzzvm_dup(vm);
+   buzzvm_pushs(vm, buzzvm_string_register(vm, "y", 1));
+   buzzvm_pushf(vm, y);
+   buzzvm_tput(vm);
+   buzzvm_dup(vm);
+   buzzvm_pushs(vm, buzzvm_string_register(vm, "theta", 1));
+   buzzvm_pushf(vm, theta);
+   buzzvm_tput(vm);
+   buzzvm_gstore(vm);
+   return vm->state;
+}
+
+/****************************************/
+/****************************************/
+
 int buzzkh4_update_ir(buzzvm_t vm) {
    static char PROXIMITY_BUF[256];
    int i;

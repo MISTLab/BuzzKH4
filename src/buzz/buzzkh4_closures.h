@@ -36,6 +36,8 @@ extern int buzzkh4_update_ir_filtered(buzzvm_t vm);
 
 extern int buzzkh4_camera_updateblob(buzzvm_t vm, int* blob);
 
+extern int buzzkh4_abs_position(buzzvm_t vm, float x, float y, float theta);
+
 extern int BuzzGoTo(buzzvm_t vm);
 
 extern int BuzzGoToAlt(buzzvm_t vm);
