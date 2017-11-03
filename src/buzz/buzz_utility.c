@@ -304,6 +304,9 @@ static int buzz_register_hooks() {
    buzzvm_pushs(VM, buzzvm_string_register(VM, "goto", 1));
    buzzvm_pushcc(VM, buzzvm_function_register(VM, BuzzGoTo));
    buzzvm_gstore(VM);
+   buzzvm_pushs(VM, buzzvm_string_register(VM, "goto_alt", 1));
+   buzzvm_pushcc(VM, buzzvm_function_register(VM, BuzzGoToAlt));
+   buzzvm_gstore(VM);
    buzzvm_pushs(VM,  buzzvm_string_register(VM, "enable_camera", 1));
    buzzvm_pushcc(VM, buzzvm_function_register(VM, buzzutility_enable_camera));
    buzzvm_gstore(VM);
@@ -458,6 +461,7 @@ void buzz_script_step() {
             /* Append message to the Buzz input message queue */
             buzzinmsg_queue_append(
                VM,
+               PACKETS_FIRST->id,
                buzzmsg_payload_frombuffer(pl + tot, msgsz));
             tot += msgsz;
             /* fprintf(stderr, "[DEBUG]    appended message, tot = %zu\n", tot); */

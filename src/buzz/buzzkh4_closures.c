@@ -6,6 +6,11 @@
 
 #define MIN(x, y) (((x) < (y)) ? (x) : (y))
 
+static const float sampling_rate = 0.01;
+static const float filter_time_const = 0.02;
+
+float ir_table [8] = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
+
 int TurningMechanism = 0;
 /****************************************/
 /****************************************/
@@ -132,6 +137,88 @@ void SetWheelSpeedsFromVector(float* vec) {
 //printf("Sending %.2f - %.2f to the wheels (%i)\n",fLeftWheelSpeed, fRightWheelSpeed, TurningMechanism);
   kh4_set_speed(fLeftWheelSpeed, fRightWheelSpeed,DSPIC);
 }
+
+/****************************************/
+
+void SetWheelSpeedsFromVectorAlt(float* vec) {
+   float HardTurnOnAngleThreshold = 1.57; //90.0 deg
+   float SoftTurnOnAngleThreshold = 0.17;//1.2217; //70.0 deg
+   float NoTurnAngleThreshold = 0.17; //10.0 deg
+   float MaxSpeed = 80.0;
+   //printf("Got (%.2f,%.2f), turning is %i\n", vec[0], vec[1], TurningMechanism);
+   /* Get the heading angle */
+   //CRadians cHeadingAngle = c_heading.Angle().SignedNormalize();
+   float cHeadingAngle = atan2 (vec[1],vec[0]);
+   WrapValue(&cHeadingAngle);
+   /* Get the length of the heading vector */
+   float fHeadingLength = vec[0]*vec[0]+vec[1]*vec[1];
+   fHeadingLength = sqrt(fHeadingLength);
+//printf("Compute distance %.2f and angle %.2f\n", fHeadingLength, cHeadingAngle);
+   /* Clamp the speed so that it's not greater than MaxSpeed */
+   float fBaseAngularWheelSpeed = MIN((float)fHeadingLength, (float)MaxSpeed);
+//printf("fBaseAngularWheelSpeed = %.2f\n", fBaseAngularWheelSpeed);
+
+   /* Turning state switching conditions */
+   if(fabs(cHeadingAngle) <= NoTurnAngleThreshold) {
+      /* No Turn, heading angle very small */
+//printf("HERE1\n");
+      TurningMechanism = 0;
+   }
+   else if(fabs(cHeadingAngle) > HardTurnOnAngleThreshold) {
+      /* Hard Turn, heading angle very large */
+//printf("HERE2\n");
+      TurningMechanism = 2;
+   }
+   else if(
+           fabs(cHeadingAngle) > SoftTurnOnAngleThreshold) {
+      /* Soft Turn, heading angle in between the two cases */
+//printf("HERE3\n");
+      TurningMechanism = 2;
+   }
+
+   /* Wheel speeds based on current turning state */
+   float fSpeed1 = 0 , fSpeed2 = 0;
+   switch(TurningMechanism) {
+      case 0: {
+         /* Just go straight */
+         fSpeed1 = fBaseAngularWheelSpeed;
+         fSpeed2 = fBaseAngularWheelSpeed;
+         break;
+      }
+
+      case 1: { //soft turn
+         /* Both wheels go straight, but one is faster than the other */
+         float fSpeedFactor = (HardTurnOnAngleThreshold - abs(cHeadingAngle)) / HardTurnOnAngleThreshold;
+         fSpeed1 = (fBaseAngularWheelSpeed - fBaseAngularWheelSpeed * (1.0 - fSpeedFactor)) * 1.5;
+         fSpeed2 = (fBaseAngularWheelSpeed + fBaseAngularWheelSpeed * (1.0 - fSpeedFactor)) * 1.5;
+         break;
+      }
+
+      case 2: { //hard turn
+         /* Opposite wheel speeds */
+         fSpeed1 = -MaxSpeed * 0.3;
+         fSpeed2 =  MaxSpeed * 0.3;
+         break;
+      }
+   }
+
+   /* Apply the calculated speeds to the appropriate wheels */
+   float fLeftWheelSpeed, fRightWheelSpeed;
+   if(cHeadingAngle > 0) {
+      /* Turn Left */
+      fLeftWheelSpeed  = fSpeed1;
+      fRightWheelSpeed = fSpeed2;
+   }
+   else {
+      /* Turn Right */
+      fLeftWheelSpeed  = fSpeed2;
+      fRightWheelSpeed = fSpeed1;
+   }
+   /* Finally, set the wheel speeds */
+//printf("Sending %.2f - %.2f to the wheels (%i)\n",fLeftWheelSpeed, fRightWheelSpeed, TurningMechanism);
+  kh4_set_speed(fLeftWheelSpeed, fRightWheelSpeed,DSPIC);
+}
+
 /****************************************/
 int BuzzGoTo(buzzvm_t vm) {
    buzzvm_lnum_assert(vm, 2);
@@ -148,6 +235,25 @@ int BuzzGoTo(buzzvm_t vm) {
    //              buzzvm_stack_at(vm, 1)->f.value);
    //buzzvm_gload(vm);
    SetWheelSpeedsFromVector(vect);
+   return buzzvm_ret0(vm);
+}
+
+/****************************************/
+int BuzzGoToAlt(buzzvm_t vm) {
+   buzzvm_lnum_assert(vm, 2);
+   /* Push the vector components */
+   buzzvm_lload(vm, 1);
+   buzzvm_lload(vm, 2);
+   buzzvm_type_assert(vm, 2, BUZZTYPE_FLOAT);
+   buzzvm_type_assert(vm, 1, BUZZTYPE_FLOAT);
+   /* Create a new vector with that */
+   float vect[2];
+   vect[0]=buzzvm_stack_at(vm, 2)->f.value;
+   vect[1]=buzzvm_stack_at(vm, 1)->f.value;
+   //CVector2 cDir(buzzvm_stack_at(vm, 2)->f.value,
+   //              buzzvm_stack_at(vm, 1)->f.value);
+   //buzzvm_gload(vm);
+   SetWheelSpeedsFromVectorAlt(vect);
    return buzzvm_ret0(vm);
 }
 
@@ -267,7 +373,77 @@ int buzzkh4_camera_updateblob(buzzvm_t vm, int* blob){
    return vm->state;
 }
 
+/****************************************/
+/****************************************/
+
+int buzzkh4_update_ir_filtered(buzzvm_t vm) {
+   static char PROXIMITY_BUF[256];
+   float ir_gain = expf( - sampling_rate / filter_time_const);
+   int i;
+   kh4_proximity_ir(PROXIMITY_BUF, DSPIC);
+   buzzvm_pushs(vm, buzzvm_string_register(vm, "proximity", 1));
+   buzzvm_pusht(vm);
+   buzzobj_t tProxTable = buzzvm_stack_at(vm, 1);
+   buzzvm_gstore(vm);
+   buzzobj_t tProxRead;
+
+   for(i = 0; i < 8; i++){
+      /* Fill in the read */
+      int a = (i + 4) % 8;
+      float current_value = (PROXIMITY_BUF[a*2] | PROXIMITY_BUF[a*2+1] << 8) / 1024.0f;
+      float current_value_filtered = ir_table[i] + (1 - ir_gain) * (current_value - ir_table[i]);
+      if(fabs(current_value_filtered - ir_table[i]) < 0.15){
+        ir_table[i] = current_value_filtered;
+      } 
+   }
+
+   for(i = 0; i < 8; i++) {
+      buzzvm_pusht(vm);
+      tProxRead = buzzvm_stack_at(vm, 1);
+      buzzvm_pop(vm);
+      /* Fill in the read */
+      //int a = (i + 4) % 8;
+      //TablePutI(tProxRead, "value", (PROXIMITY_BUF[a*2] | PROXIMITY_BUF[a*2+1] << 8), vm);
+      TablePutF(tProxRead, "value", ir_table[i], vm);
+      int angle = 7 - i;
+      TablePutI(tProxRead, "angle", angle * 45, vm);
+      /* Store read table in the proximity table */
+      TablePutO(tProxTable, i, tProxRead, vm);
+   }
+
+   return vm->state;
+}
 
 /****************************************/
 /****************************************/
 
+
+buzzvm_state TablePutF(buzzobj_t t_table, const char* str_key, float n_value, buzzvm_t m_tBuzzVM) {
+   buzzvm_push(m_tBuzzVM, t_table);
+   buzzvm_pushs(m_tBuzzVM, buzzvm_string_register(m_tBuzzVM, str_key, 1));
+   buzzvm_pushf(m_tBuzzVM, n_value);
+   buzzvm_tput(m_tBuzzVM);
+   return m_tBuzzVM->state;
+}
+
+/****************************************/
+/****************************************/
+
+buzzvm_state TablePutI(buzzobj_t t_table, const char* str_key, int n_value, buzzvm_t m_tBuzzVM) {
+   buzzvm_push(m_tBuzzVM, t_table);
+   buzzvm_pushs(m_tBuzzVM, buzzvm_string_register(m_tBuzzVM, str_key, 1));
+   buzzvm_pushi(m_tBuzzVM, n_value);
+   buzzvm_tput(m_tBuzzVM);
+   return m_tBuzzVM->state;
+}
+
+/****************************************/
+/****************************************/
+
+buzzvm_state TablePutO(buzzobj_t t_table, int n_idx, buzzobj_t t_obj, buzzvm_t m_tBuzzVM) {
+   buzzvm_push(m_tBuzzVM, t_table);
+   buzzvm_pushi(m_tBuzzVM, n_idx);
+   buzzvm_push(m_tBuzzVM, t_obj);
+   buzzvm_tput(m_tBuzzVM);
+   return m_tBuzzVM->state;
+}

@@ -3,6 +3,7 @@
 1- Download the khepera light toolchain: http://ftp.k-team.com/KheperaIV/software/light_tools/khepera4-yocto-light-kb1.0.tar.bz2
 
 2- Install it: sudo tar -xjf khepera4-yocto-light-kbX.Y.tar.bz2 -C /usr/local
+(make sure you've installed gcc-multilib 
 
 3- get and cross-compile Buzz: 
 
