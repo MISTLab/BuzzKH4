@@ -17,7 +17,8 @@ void usage(const char* path, int status) {
    fprintf(stderr, "  stream        The stream type: tcp or bt\n");
    fprintf(stderr, "  msg_size      The message size in bytes\n");
    fprintf(stderr, "  file.bo       The Buzz bytecode file\n");
-   fprintf(stderr, "  file.bdbg     The Buzz debug file\n\n");
+   fprintf(stderr, "  file.bdbg     The Buzz debug file\n");
+   fprintf(stderr, "  frequency     The Buzz step frequency (default 10Hz)\n\n");
    exit(status);
 }
 
@@ -27,7 +28,7 @@ static void ctrlc_handler(int sig) {
 
 int main(int argc, char** argv) {
    /* Parse command line */
-   if(argc != 5) usage(argv[0], 0);
+   if(argc < 5) usage(argv[0], 0);
    /* The stream type */
    char* stream = argv[1];
    if(strcmp(stream, "tcp") != 0 &&
@@ -46,6 +47,12 @@ int main(int argc, char** argv) {
       fprintf(stderr, "%s: invalid value %d for message size\n", argv[0], msg_sz);
       return 0;
    }
+   // frequency
+   if(argc == 6){
+     FREQUENCY = 1000000 / strtol(argv[5], &endptr, 10);
+   } else {
+     FREQUENCY = 100000;
+   }
    /* The bytecode filename */
    char* bcfname = argv[3];
    /* The debugging information file name */
@@ -59,7 +66,7 @@ int main(int argc, char** argv) {
    kh4_setup();
    /*initialize camera thread*/
    camera_routine();
-   
+
    /* Set the Buzz bytecode */
    if(buzz_script_set(bcfname, dbgfname)) {
       /* Main loop */
@@ -68,7 +75,7 @@ int main(int argc, char** argv) {
       /* Cleanup */
       buzz_script_destroy();
    }
-   
+
    /* Stop the robot */
    kh4_done();
    /* All done */

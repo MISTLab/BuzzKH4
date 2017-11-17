@@ -594,7 +594,7 @@ void buzz_script_step() {
    buzzvm_process_outmsgs(VM);
    STREAM_SEND();
    /* Sleep */
-   usleep(100000);
+   usleep(FREQUENCY);
    /* Print swarm */
    buzzswarm_members_print(stdout, VM->swarmmembers, VM->robot);
    /* Check swarm state */
