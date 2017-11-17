@@ -31,6 +31,10 @@ static int         TCP_COMM_STREAM = -1;
 static uint8_t*    STREAM_SEND_BUF = NULL;
 static int         blob_pos[4];
 static int         enable_cam=0;
+// robot ID
+int                ROBOT_ID        = -1;
+// absolute positioning
+float abs_x = 0.0, abs_y = 0.0, abs_theta = 0.0;
 
 #define TCP_LIST_STREAM_PORT "24580"
 #define IDOFFSET 0
@@ -61,7 +65,7 @@ struct incoming_packet_s {
    /* Id of the message sender */
    int id;
    /* Payload */
-   uint8_t* payload;
+   uint16_t* payload;
    /* Next message */
    struct incoming_packet_s* next;
 };
@@ -70,27 +74,44 @@ struct incoming_packet_s {
 static struct incoming_packet_s* PACKETS_FIRST = NULL;
 static struct incoming_packet_s* PACKETS_LAST  = NULL;
 
-void incoming_packet_add(int id,
-                         const uint8_t* pl) {
-   /* Create packet */
-   struct incoming_packet_s* p =
-      (struct incoming_packet_s*)malloc(sizeof(struct incoming_packet_s));
-   /* Fill in the data */
-   p->id = id;
-   p->payload = malloc(MSG_SIZE - sizeof(uint16_t));
-   memcpy(p->payload, pl, MSG_SIZE - sizeof(uint16_t));
-   p->next = NULL;
-   /* Lock mutex */
-   pthread_mutex_lock(&INCOMING_PACKET_MUTEX);
-   /* Add as last to list */
-   if(PACKETS_FIRST != NULL)
-      PACKETS_LAST->next = p;
-   else
-      PACKETS_FIRST = p;
-   PACKETS_LAST = p;
-   /* Unlock mutex */
-   pthread_mutex_unlock(&INCOMING_PACKET_MUTEX);
-   /* fprintf(stderr, "[DEBUG]    Added packet from %d\n", id); */
+void incoming_packet_add(int id, const uint8_t* pl) {
+  // check if the packet is from the current robot
+  // if so, extract the absolute position data, and drop the package
+  int packet_from = 0;
+  int offset = sizeof(float) * 3;
+  memcpy(&packet_from, pl + offset, sizeof(int));
+  printf("Packet from: %d", packet_from);
+  if(packet_from == ROBOT_ID){
+    offset += sizeof(int);
+    memcpy(&abs_x, pl + offset, sizeof(float));
+    offset += sizeof(float);
+    memcpy(&abs_y, pl + offset, sizeof(float));
+    offset += sizeof(float);
+    memcpy(&abs_theta, pl + offset, sizeof(float));
+    return;
+  }
+
+  /* Create packet */
+  struct incoming_packet_s* p = (struct incoming_packet_s*)malloc(sizeof(struct incoming_packet_s));
+  /* Fill in the data */
+  p->id = id;
+  p->payload = malloc(MSG_SIZE - sizeof(uint8_t));
+  memcpy(p->payload, pl, MSG_SIZE - sizeof(uint8_t));
+  //p->payload = malloc(MSG_SIZE);
+  //memcpy(p->payload, pl, MSG_SIZE);
+
+  p->next = NULL;
+  /* Lock mutex */
+  pthread_mutex_lock(&INCOMING_PACKET_MUTEX);
+  /* Add as last to list */
+  if(PACKETS_FIRST != NULL)
+    PACKETS_LAST->next = p;
+  else
+    PACKETS_FIRST = p;
+  PACKETS_LAST = p;
+  /* Unlock mutex */
+  pthread_mutex_unlock(&INCOMING_PACKET_MUTEX);
+  fprintf(stderr, "[DEBUG]    Added packet from %d\n", id);
 }
 
 /****************************************/
@@ -124,8 +145,7 @@ void* buzz_stream_incoming_thread_tcp(void* args) {
          /* fprintf(stderr, ", %zd left, %zd tot\n", left, tot); */
       }
       /* Done receiving data, add packet to list */
-      incoming_packet_add(*(uint16_t*)buf,
-                          buf + sizeof(uint16_t));
+      incoming_packet_add(*(uint16_t*)buf, buf + sizeof(uint16_t));
    }
 }
 
@@ -242,8 +262,7 @@ int buzz_listen_bt() {
    return 0;
 }
 
-int buzz_listen(const char* type,
-                int msg_size) {
+int buzz_listen(const char* type, int msg_size) {
    /* Set the message size */
    MSG_SIZE = msg_size;
    /* Create the mutex */
@@ -320,10 +339,13 @@ int buzz_script_set(const char* bo_filename,
    gethostname(hstnm, 30);
    /* Make numeric id from hostname */
    /* NOTE: here we assume that the hostname is in the format Knn */
-   int id = strtol(hstnm + 1, NULL, 10) + IDOFFSET;	//CHANGES FOR OFFROBOTS TESTS!!!!
+   ROBOT_ID = strtol(hstnm + 1, NULL, 10) + IDOFFSET;	//CHANGES FOR OFFROBOTS TESTS!!!!
    /* Reset the Buzz VM */
-   if(VM) buzzvm_destroy(&VM);
-   VM = buzzvm_new(id);
+   if(VM){
+     buzzvm_destroy(&VM);
+   }
+
+   VM = buzzvm_new(ROBOT_ID);
    /* Get rid of debug info */
    if(DBG_INFO) buzzdebug_destroy(&DBG_INFO);
    DBG_INFO = buzzdebug_new();
@@ -422,10 +444,10 @@ void buzz_script_step() {
    /* Reset neighbor information */
    buzzneighbors_reset(VM);
    /* Lock mutex */
-   /* fprintf(stderr, "[DEBUG] Processing incoming packets...\n"); */
    pthread_mutex_lock(&INCOMING_PACKET_MUTEX);
    /* Go through messages and add them to the FIFO */
    struct incoming_packet_s* n;
+   //fprintf(stderr, "[DEBUG] Processing incoming packets...%d\n", n);
    while(PACKETS_FIRST) {
       /* Save next packet */
       n = PACKETS_FIRST->next;
@@ -439,18 +461,18 @@ void buzz_script_step() {
       tot += sizeof(float);
       memcpy(&t, pl+tot, sizeof(float));
       tot += sizeof(float);
-      //fprintf(stdout,"got neighbors position: %.2f,%.2f,%.2f\n",x,y,t);
+
+      // reserved for absolute positioning (extracted)
+      tot += sizeof(int);
+      tot += sizeof(float);
+      tot += sizeof(float);
+      tot += sizeof(float);
+
       buzzneighbors_add(VM, PACKETS_FIRST->id, x, y, t);
-      /* Go through the payload and extract the messages */
       uint16_t msgsz;
-      /* fprintf(stderr, "[DEBUG] Processing packet %p from %d\n",
-               PACKETS_FIRST,
-               PACKETS_FIRST->id);*/
-      /* fprintf(stderr, "[DEBUG] recv sz = %u\n", */
-      /*         *(uint16_t*)pl); */
       do {
          /* Get payload size */
-         msgsz = *(uint16_t*)(pl + tot);
+         msgsz = *(uint16_t*)(pl + tot); // <-- why would you do that? :/
          tot += sizeof(uint16_t);
          /* fprintf(stderr, "[DEBUG]    msg size = %u, tot = %zu\n", msgsz, tot); */
          /* Make sure the message payload can be read */
@@ -458,12 +480,21 @@ void buzz_script_step() {
             /* Append message to the Buzz input message queue */
             buzzinmsg_queue_append(
                VM,
+               PACKETS_FIRST->id,
                buzzmsg_payload_frombuffer(pl + tot, msgsz));
             tot += msgsz;
             /* fprintf(stderr, "[DEBUG]    appended message, tot = %zu\n", tot); */
          }
       }
       while(MSG_SIZE - tot > sizeof(uint16_t) && msgsz > 0);
+
+
+      /**pretty sure that the loop above can be replaced by:
+      buzzinmsg_queue_append(
+         VM,
+         PACKETS_FIRST->id,
+         buzzmsg_payload_frombuffer(pl + tot, (MSG_SIZE - tot)));
+      */
       /* Erase packet */
       /* fprintf(stderr, "[DEBUG] Done processing packet %p from %d\n", */
       /*         PACKETS_FIRST, */
@@ -503,17 +534,25 @@ void buzz_script_step() {
     * Broadcast messages
     */
    /* Prepare buffer */
+   // TODO: this remains
    memset(STREAM_SEND_BUF, 0, MSG_SIZE);
    *(uint16_t*)STREAM_SEND_BUF = VM->robot;
    ssize_t tot = sizeof(uint16_t);
       /* add local position*/
-      float x=0.0,y=0.11,t=0.0;
+      float x=0.0,y=0.0,t=0.0;
       memcpy(STREAM_SEND_BUF + tot, &x, sizeof(float));
       tot += sizeof(float);
       memcpy(STREAM_SEND_BUF + tot, &y, sizeof(float));
       tot += sizeof(float);
       memcpy(STREAM_SEND_BUF + tot, &t, sizeof(float));
       tot += sizeof(float);
+
+      // reserved for absolute positioning (extracted)
+      tot += sizeof(int);
+      tot += sizeof(float);
+      tot += sizeof(float);
+      tot += sizeof(float);
+
       //fprintf(stdout,"sending neighbors position: %.2f,%.2f,%.2f\n",x,y,t);
    do {
       /* Are there more messages? */
@@ -585,7 +624,7 @@ void buzz_script_destroy() {
 //printf("AFTERJOIN\n");
    stop_camera();
 //printf("STOPCAM\n");
-   
+
    /* Get rid of stream buffer */
    free(STREAM_SEND_BUF);
    /* Get rid of virtual machine */
@@ -619,7 +658,7 @@ int* blob;
    while(1){
       int cam_enable=get_enable_cam();
       pthread_testcancel();
-      if(cam_enable == 1){   
+      if(cam_enable == 1){
       blob = get_blob_pos();
       pthread_testcancel();
       pthread_mutex_lock(&camera_mutex);
@@ -638,10 +677,10 @@ int* blob;
 /*************************************************/
 void camera_routine(){
     initialize_camera();
-   
+
    pthread_create(&blob_manage, NULL, &camera_thread, NULL);
-   
-   
+
+
 }
 int buzzutility_enable_camera(buzzvm_t vm){
    buzzvm_lnum_assert(vm, 1);
@@ -659,7 +698,7 @@ void set_enable_cam(int cam_enable){
 }
 
 int get_enable_cam(){
-	int cam_enable;	
+	int cam_enable;
 	pthread_mutex_lock(&camera_enable_mutex);
 	cam_enable=enable_cam;
 	pthread_mutex_unlock(&camera_enable_mutex);
