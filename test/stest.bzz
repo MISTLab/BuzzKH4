@@ -1,0 +1,30 @@
+function init() {
+	v = stigmergy.create(1)
+	v.put("a", 6)
+	pc = 0
+}
+
+function step() {
+
+	if(id == 2 and pc > 10){
+		v.put("a", 10)
+	}
+
+ 	var i = 0;
+	while(i < size(proximity)){
+		log(i, " sensor: ", proximity[i].value, ", ", proximity[i].angle)
+		i = i + 1
+	}
+
+	x = v.get("a")
+	log("The vstig has ", v.size(), " elements and it's: ", x)
+	pc = pc + 1
+
+	neighbors.foreach(
+		function(rid, data) {
+			log("Robot: ", rid)
+	})
+}
+
+function destroy() {
+}

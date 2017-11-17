@@ -10,6 +10,7 @@ static const float sampling_rate = 0.01;
 static const float filter_time_const = 0.02;
 float ir_table [8] = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
 
+int US_ENABLED = 0;
 int TurningMechanism = 0;
 /****************************************/
 /****************************************/
@@ -296,7 +297,6 @@ int buzzkh4_update_ir(buzzvm_t vm) {
    return vm->state;
 }
 
-
 /****************************************/
 /****************************************/
 
@@ -337,6 +337,48 @@ int buzzkh4_update_ir_filtered(buzzvm_t vm) {
 
    return vm->state;
 }
+
+/****************************************/
+/****************************************/
+
+int buzzkh4_enable_us(buzzvm_t vm, int value){
+  // in accordance to demo from libkhepera1.1: khepera4_test.c
+  if(value == 1){
+    kh4_activate_us(31, DSPIC);
+    US_ENABLED = 1;
+  } else {
+    kh4_activate_us(0, DSPIC);
+    US_ENABLED = 0;
+  }
+  return vm->state;
+}
+
+int buzzkh4_update_us(buzzvm_t vm){
+  static char PROXIMITY_BUF[256];
+  int i;
+  kh4_measure_us(PROXIMITY_BUF, DSPIC);
+  buzzvm_pushs(vm, buzzvm_string_register(vm, "proximity_us", 1));
+  buzzvm_pusht(vm);
+  buzzobj_t tProxTable = buzzvm_stack_at(vm, 1);
+  buzzvm_gstore(vm);
+  buzzobj_t tProxRead;
+  if(US_ENABLED){
+    for (i = 0; i < 5; i++){
+      buzzvm_pusht(vm);
+      tProxRead = buzzvm_stack_at(vm, 1);
+      buzzvm_pop(vm);
+      TablePutF(tProxRead, "value", (PROXIMITY_BUF[i*2] | PROXIMITY_BUF[i*2+1]<<8), vm);
+      int angle = 90 - (i * 45);
+      if(angle < 0){
+        angle += 360;
+      }
+      TablePutI(tProxRead, "angle", angle, vm);
+      TablePutO(tProxTable, i, tProxRead, vm);
+    }
+  }
+  return vm->state;
+}
+
 
 /****************************************/
 // Buzz table operations

@@ -50,7 +50,7 @@ BuzzKH4
 update.sh
 ```
 
-Usage (if necessart, add executable permission as: chmod +x update.sh):
+Usage (if necessary, add executable permission as: chmod +x update.sh):
 ```
 ./update.sh (all|kh4) K01, K02, ..., K_n
 ```

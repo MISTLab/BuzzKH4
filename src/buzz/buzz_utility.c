@@ -42,6 +42,7 @@ float abs_x = 0.0, abs_y = 0.0, abs_theta = 0.0;
 /* Pointer to a function that sends a message on the stream */
 static void (*STREAM_SEND)() = NULL;
 int buzzutility_enable_camera(buzzvm_t vm);
+int buzzutility_enable_us(buzzvm_t vm);
 /* PThread handle to manage incoming messages */
 static pthread_t INCOMING_MSG_THREAD;
 /* PThread handle to manage blob center */
@@ -111,7 +112,6 @@ void incoming_packet_add(int id, const uint8_t* pl) {
   PACKETS_LAST = p;
   /* Unlock mutex */
   pthread_mutex_unlock(&INCOMING_PACKET_MUTEX);
-  fprintf(stderr, "[DEBUG]    Added packet from %d\n", id);
 }
 
 /****************************************/
@@ -326,6 +326,9 @@ static int buzz_register_hooks() {
    buzzvm_pushs(VM,  buzzvm_string_register(VM, "enable_camera", 1));
    buzzvm_pushcc(VM, buzzvm_function_register(VM, buzzutility_enable_camera));
    buzzvm_gstore(VM);
+   buzzvm_pushs(VM,  buzzvm_string_register(VM, "enable_us", 1));
+   buzzvm_pushcc(VM, buzzvm_function_register(VM, buzzutility_enable_us));
+   buzzvm_gstore(VM);
    return BUZZVM_STATE_READY;
 }
 
@@ -517,6 +520,7 @@ void buzz_script_step() {
    buzzkh4_update_battery(VM);
    buzzkh4_update_ir(VM);
    buzzkh4_update_ir_filtered(VM);
+   buzzkh4_update_us(VM);
    buzzkh4_abs_position(VM, abs_x, abs_x, abs_theta);
 
    pthread_mutex_lock(&camera_mutex);
@@ -578,8 +582,7 @@ void buzz_script_step() {
       /* Add payload to data buffer */
       memcpy(STREAM_SEND_BUF + tot, m->data, buzzmsg_payload_size(m));
       tot += buzzmsg_payload_size(m);
-      fprintf(stderr, "[DEBUG] send before sz = %u\n",
-               *(uint16_t*)(STREAM_SEND_BUF + 2));
+      //fprintf(stderr, "[DEBUG] send before sz = %u\n", *(uint16_t*)(STREAM_SEND_BUF + 2));
       /* Get rid of message */
       buzzoutmsg_queue_next(VM);
       buzzmsg_payload_destroy(&m);
@@ -650,6 +653,15 @@ void buzz_script_destroy() {
 
 int buzz_script_done() {
    return VM->state != BUZZVM_STATE_READY;
+}
+
+int buzzutility_enable_us(buzzvm_t vm){
+   buzzvm_lnum_assert(vm, 1);
+   buzzvm_lload(vm, 1); /* 0 disable 1 enable */
+   buzzvm_type_assert(vm, 1, BUZZTYPE_INT);
+   buzzkh4_enable_us(vm, buzzvm_stack_at(vm, 1)->i.value);
+   printf("enablecam_val = \n, buzz returned value = \n");
+   return buzzvm_ret0(vm);
 }
 
 /****************************************/
