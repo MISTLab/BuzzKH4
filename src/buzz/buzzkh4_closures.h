@@ -33,7 +33,17 @@ extern int buzzkh4_update_battery(buzzvm_t vm);
  */
 extern int buzzkh4_update_ir(buzzvm_t vm);
 
+extern int buzzkh4_update_ir_filtered(buzzvm_t vm);
+
 extern int buzzkh4_camera_updateblob(buzzvm_t vm, int* blob);
 
+extern int buzzkh4_abs_position(buzzvm_t vm, float x, float y, float theta);
+
 extern int BuzzGoTo(buzzvm_t vm);
+
+extern buzzvm_state TablePutI(buzzobj_t t_table, const char* str_key, int n_value, buzzvm_t m_tBuzzVM);
+
+extern buzzvm_state TablePutO(buzzobj_t t_table, int n_idx, buzzobj_t t_obj, buzzvm_t m_tBuzzVM);
+
+extern buzzvm_state TablePutF(buzzobj_t t_table, const char* str_key, float n_value, buzzvm_t m_tBuzzVM);
 #endif

@@ -6,6 +6,10 @@
 
 #define MIN(x, y) (((x) < (y)) ? (x) : (y))
 
+static const float sampling_rate = 0.01;
+static const float filter_time_const = 0.02;
+float ir_table [8] = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
+
 int TurningMechanism = 0;
 /****************************************/
 /****************************************/
@@ -213,31 +217,6 @@ int buzzkh4_update_battery(buzzvm_t vm) {
 /****************************************/
 /****************************************/
 
-int buzzkh4_update_ir(buzzvm_t vm) {
-   static char PROXIMITY_BUF[256];
-   int i;
-   kh4_proximity_ir(PROXIMITY_BUF, DSPIC);
-   buzzvm_pushs(vm, buzzvm_string_register(vm, "proximity_ir", 1));
-   buzzvm_pusht(vm);
-   for(i = 0; i < 8; i++) {
-      buzzvm_dup(vm);
-      buzzvm_pushi(vm, i+1);
-      buzzvm_pushi(vm, (PROXIMITY_BUF[i*2] | PROXIMITY_BUF[i*2+1] << 8));
-      buzzvm_tput(vm);
-   }
-   buzzvm_gstore(vm);
-   buzzvm_pushs(vm, buzzvm_string_register(vm, "ground_ir", 1));
-   buzzvm_pusht(vm);
-   for(i = 8; i < 12; i++) {
-      buzzvm_dup(vm);
-      buzzvm_pushi(vm, i-7);
-      buzzvm_pushi(vm, (PROXIMITY_BUF[i*2] | PROXIMITY_BUF[i*2+1] << 8));
-      buzzvm_tput(vm);
-   }
-   buzzvm_gstore(vm);
-   return vm->state;
-}
-
 int buzzkh4_camera_updateblob(buzzvm_t vm, int* blob){
    //int* blob =get_available_blob();
    buzzvm_pushs(vm, buzzvm_string_register(vm, "camera_blob", 1));
@@ -267,7 +246,129 @@ int buzzkh4_camera_updateblob(buzzvm_t vm, int* blob){
    return vm->state;
 }
 
+/****************************************/
+/****************************************/
+
+int buzzkh4_abs_position(buzzvm_t vm, float x, float y, float theta) {
+   buzzvm_pushs(vm, buzzvm_string_register(vm, "absolute_position", 1));
+   buzzvm_pusht(vm);
+   buzzvm_dup(vm);
+   buzzvm_pushs(vm, buzzvm_string_register(vm, "x", 1));
+   buzzvm_pushf(vm, x);
+   buzzvm_tput(vm);
+   buzzvm_dup(vm);
+   buzzvm_pushs(vm, buzzvm_string_register(vm, "y", 1));
+   buzzvm_pushf(vm, y);
+   buzzvm_tput(vm);
+   buzzvm_dup(vm);
+   buzzvm_pushs(vm, buzzvm_string_register(vm, "theta", 1));
+   buzzvm_pushf(vm, theta);
+   buzzvm_tput(vm);
+   buzzvm_gstore(vm);
+   return vm->state;
+}
 
 /****************************************/
 /****************************************/
 
+int buzzkh4_update_ir(buzzvm_t vm) {
+   static char PROXIMITY_BUF[256];
+   int i;
+   kh4_proximity_ir(PROXIMITY_BUF, DSPIC);
+   buzzvm_pushs(vm, buzzvm_string_register(vm, "proximity_ir", 1));
+   buzzvm_pusht(vm);
+   for(i = 0; i < 8; i++) {
+      buzzvm_dup(vm);
+      buzzvm_pushi(vm, i+1);
+      buzzvm_pushi(vm, (PROXIMITY_BUF[i*2] | PROXIMITY_BUF[i*2+1] << 8));
+      buzzvm_tput(vm);
+   }
+   buzzvm_gstore(vm);
+   buzzvm_pushs(vm, buzzvm_string_register(vm, "ground_ir", 1));
+   buzzvm_pusht(vm);
+   for(i = 8; i < 12; i++) {
+      buzzvm_dup(vm);
+      buzzvm_pushi(vm, i-7);
+      buzzvm_pushi(vm, (PROXIMITY_BUF[i*2] | PROXIMITY_BUF[i*2+1] << 8));
+      buzzvm_tput(vm);
+   }
+   buzzvm_gstore(vm);
+   return vm->state;
+}
+
+
+/****************************************/
+/****************************************/
+
+int buzzkh4_update_ir_filtered(buzzvm_t vm) {
+   static char PROXIMITY_BUF[256];
+   float ir_gain = expf( - sampling_rate / filter_time_const);
+   int i;
+   kh4_proximity_ir(PROXIMITY_BUF, DSPIC);
+   buzzvm_pushs(vm, buzzvm_string_register(vm, "proximity", 1));
+   buzzvm_pusht(vm);
+   buzzobj_t tProxTable = buzzvm_stack_at(vm, 1);
+   buzzvm_gstore(vm);
+   buzzobj_t tProxRead;
+
+   for(i = 0; i < 8; i++){
+      /* Fill in the read */
+      int a = (i + 4) % 8;
+      float current_value = (PROXIMITY_BUF[a*2] | PROXIMITY_BUF[a*2+1] << 8) / 1024.0f;
+      float current_value_filtered = ir_table[i] + (1 - ir_gain) * (current_value - ir_table[i]);
+      if(fabs(current_value_filtered - ir_table[i]) < 0.15){
+        ir_table[i] = current_value_filtered;
+      }
+   }
+
+   for(i = 0; i < 8; i++) {
+      buzzvm_pusht(vm);
+      tProxRead = buzzvm_stack_at(vm, 1);
+      buzzvm_pop(vm);
+      /* Fill in the read */
+      //int a = (i + 4) % 8;
+      //TablePutI(tProxRead, "value", (PROXIMITY_BUF[a*2] | PROXIMITY_BUF[a*2+1] << 8), vm);
+      TablePutF(tProxRead, "value", ir_table[i], vm);
+      int angle = 7 - i;
+      TablePutI(tProxRead, "angle", angle * 45, vm);
+      /* Store read table in the proximity table */
+      TablePutO(tProxTable, i, tProxRead, vm);
+   }
+
+   return vm->state;
+}
+
+/****************************************/
+// Buzz table operations
+/****************************************/
+
+
+buzzvm_state TablePutF(buzzobj_t t_table, const char* str_key, float n_value, buzzvm_t m_tBuzzVM) {
+   buzzvm_push(m_tBuzzVM, t_table);
+   buzzvm_pushs(m_tBuzzVM, buzzvm_string_register(m_tBuzzVM, str_key, 1));
+   buzzvm_pushf(m_tBuzzVM, n_value);
+   buzzvm_tput(m_tBuzzVM);
+   return m_tBuzzVM->state;
+}
+
+/****************************************/
+/****************************************/
+
+buzzvm_state TablePutI(buzzobj_t t_table, const char* str_key, int n_value, buzzvm_t m_tBuzzVM) {
+   buzzvm_push(m_tBuzzVM, t_table);
+   buzzvm_pushs(m_tBuzzVM, buzzvm_string_register(m_tBuzzVM, str_key, 1));
+   buzzvm_pushi(m_tBuzzVM, n_value);
+   buzzvm_tput(m_tBuzzVM);
+   return m_tBuzzVM->state;
+}
+
+/****************************************/
+/****************************************/
+
+buzzvm_state TablePutO(buzzobj_t t_table, int n_idx, buzzobj_t t_obj, buzzvm_t m_tBuzzVM) {
+   buzzvm_push(m_tBuzzVM, t_table);
+   buzzvm_pushi(m_tBuzzVM, n_idx);
+   buzzvm_push(m_tBuzzVM, t_obj);
+   buzzvm_tput(m_tBuzzVM);
+   return m_tBuzzVM->state;
+}

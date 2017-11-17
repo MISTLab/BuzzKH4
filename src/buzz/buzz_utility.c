@@ -516,6 +516,8 @@ void buzz_script_step() {
     */
    buzzkh4_update_battery(VM);
    buzzkh4_update_ir(VM);
+   buzzkh4_update_ir_filtered(VM);
+   buzzkh4_abs_position(VM, abs_x, abs_x, abs_theta);
 
    pthread_mutex_lock(&camera_mutex);
    buzzkh4_camera_updateblob(VM,blob_pos);
