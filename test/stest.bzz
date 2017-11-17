@@ -2,6 +2,8 @@ function init() {
 	v = stigmergy.create(1)
 	v.put("a", 6)
 	pc = 0
+	#enable_us(1)
+	play_sound("/home/root/ivan/ready.wav", 100)
 }
 
 function step() {
@@ -12,9 +14,14 @@ function step() {
 
  	var i = 0;
 	while(i < size(proximity)){
-		log(i, " sensor: ", proximity[i].value, ", ", proximity[i].angle)
+		log(i, "IR sensor: ", proximity[i].value, ", ", proximity[i].angle)
 		i = i + 1
 	}
+	i = 0;
+	#while(i < size(proximity_us)){
+	#	log(i, "US sensor: ", proximity_us[i].value, ", ", proximity_us[i].angle)
+	#	i = i + 1
+	#}
 
 	x = v.get("a")
 	log("The vstig has ", v.size(), " elements and it's: ", x)
@@ -27,4 +34,6 @@ function step() {
 }
 
 function destroy() {
+	#enable_us(0)
 }
+

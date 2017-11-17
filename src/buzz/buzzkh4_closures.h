@@ -43,6 +43,8 @@ extern int buzzkh4_abs_position(buzzvm_t vm, float x, float y, float theta);
 
 extern int buzzkh4_enable_us(buzzvm_t vm, int value);
 
+extern int buzzkh4_play_sound(buzzvm_t vm, char* filename, int volume);
+
 extern int BuzzGoTo(buzzvm_t vm);
 
 extern buzzvm_state TablePutI(buzzobj_t t_table, const char* str_key, int n_value, buzzvm_t m_tBuzzVM);

@@ -43,6 +43,8 @@ float abs_x = 0.0, abs_y = 0.0, abs_theta = 0.0;
 static void (*STREAM_SEND)() = NULL;
 int buzzutility_enable_camera(buzzvm_t vm);
 int buzzutility_enable_us(buzzvm_t vm);
+int buzzutility_play_sound(buzzvm_t vm);
+
 /* PThread handle to manage incoming messages */
 static pthread_t INCOMING_MSG_THREAD;
 /* PThread handle to manage blob center */
@@ -328,6 +330,9 @@ static int buzz_register_hooks() {
    buzzvm_gstore(VM);
    buzzvm_pushs(VM,  buzzvm_string_register(VM, "enable_us", 1));
    buzzvm_pushcc(VM, buzzvm_function_register(VM, buzzutility_enable_us));
+   buzzvm_gstore(VM);
+   buzzvm_pushs(VM,  buzzvm_string_register(VM, "play_sound", 1));
+   buzzvm_pushcc(VM, buzzvm_function_register(VM, buzzutility_play_sound));
    buzzvm_gstore(VM);
    return BUZZVM_STATE_READY;
 }
@@ -660,9 +665,22 @@ int buzzutility_enable_us(buzzvm_t vm){
    buzzvm_lload(vm, 1); /* 0 disable 1 enable */
    buzzvm_type_assert(vm, 1, BUZZTYPE_INT);
    buzzkh4_enable_us(vm, buzzvm_stack_at(vm, 1)->i.value);
-   printf("enablecam_val = \n, buzz returned value = \n");
    return buzzvm_ret0(vm);
 }
+
+int buzzutility_play_sound(buzzvm_t vm){
+  buzzvm_lnum_assert(vm, 2);
+  buzzvm_lload(vm, 1); /* filename */
+  buzzvm_lload(vm, 2); /* volume */
+  buzzvm_type_assert(vm, 2, BUZZTYPE_STRING);
+  buzzvm_type_assert(vm, 1, BUZZTYPE_INT);
+  buzzkh4_play_sound(vm,  buzzvm_stack_at(vm, 2)->s.value.str,
+                          buzzvm_stack_at(vm, 1)->i.value);
+  return buzzvm_ret0(vm);
+}
+
+
+
 
 /****************************************/
 /****************************************/

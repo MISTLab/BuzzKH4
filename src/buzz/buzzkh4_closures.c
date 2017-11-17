@@ -379,6 +379,39 @@ int buzzkh4_update_us(buzzvm_t vm){
   return vm->state;
 }
 
+/****************************************/
+/****************************************/
+
+int buzzkh4_play_sound(buzzvm_t vm, char* filename, int volume){
+  char* sound_buff = NULL;
+  int data_size;
+  short channels;
+  short bits_per_sample;
+  int sample_rate;
+  kb_sound_init();
+  switch_speakers_ON_OFF(1);
+  mute_speaker(0);
+  set_speakers_volume(volume, volume);
+  int err;
+
+  fprintf(stderr,"Now playing %s, volume %d!\r\n", filename, volume);
+
+  if ((err=load_wav_file(filename,&sound_buff,&data_size,&channels,&bits_per_sample,&sample_rate))<0)
+	{
+		fprintf(stderr,"Error: could not open wav file %s, error number %d!\r\n", filename, err);
+		free(sound_buff);
+		kb_sound_release();
+	} else {
+    play_buffer(sound_buff,data_size);
+    wait_end_of_play();
+    free(sound_buff);
+  }
+  switch_speakers_ON_OFF(0);
+  mute_speaker(1);
+
+  return vm->state;
+}
+
 
 /****************************************/
 // Buzz table operations
