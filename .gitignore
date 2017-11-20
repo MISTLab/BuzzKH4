@@ -1,1 +1,4 @@
 build*
+.bo
+.bdb
+.basm

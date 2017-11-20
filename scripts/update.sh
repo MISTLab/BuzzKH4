@@ -4,7 +4,7 @@
 KH_ENV_LOC='/home/mistlab/khepera-proper/'
 KH_ENV='/home/root/MIST'
 
-# Usage ./update.sh (all|kh4) K01, K02, ..., K_n
+# Usage ./update.sh (all|kh4) K01 K02 ... K_n
 OPTION=$1
 shift
 
@@ -16,9 +16,9 @@ then
     # BIN
     # create bin and copy executables
     ssh $khepera "mkdir -p $KH_ENV/bin"
-    find $KH_ENV_LOC/Buzz/build/buzz/ -executable -type f -name 'bzz*' -exec scp {} $khepera:$KH_ENV/bin/ \;
+    find /usr/local/khepera4-yocto/build/tmp/sysroots/i686-linux/usr/bin/ -executable -type f -name 'bzz*' -exec scp {} $khepera:$KH_ENV/bin/ \;
     scp $KH_ENV_LOC/BuzzKH4/build/bzzkh4 $khepera:$KH_ENV/bin/
-    scp /usr/local/khepera4-yocto/build/tmp/sysroots/i686-linux/usr/bin/bzzc $khepera:$KH_ENV/bin/
+    #scp /usr/local/khepera4-yocto/build/tmp/sysroots/i686-linux/usr/bin/bzzc $khepera:$KH_ENV/bin/
 
     # DOC
     # create doc and copy readme

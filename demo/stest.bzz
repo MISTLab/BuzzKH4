@@ -1,0 +1,103 @@
+function init() {
+	# create a stigmergy table, and add an entry
+	v = stigmergy.create(1)
+	v.put("stig", 6)
+	# define a simple program countr variable to delay execution
+	pc = 0
+	us_enabled = 0
+	# current function to execute
+	execute = default
+}
+
+function default(){
+	log("Step: ", pc)
+}
+
+function test_stigmergy(){
+	log("Writing to stigmergy ... ")
+	v.put("stig", 10)
+}
+
+function test_ir(){
+	log("here... ", size(proximity))
+ 	var i = 0;
+	while(i < size(proximity)){
+		log(i, " IR sensor: ", proximity[i].value, ", ", proximity[i].angle)
+		i = i + 1
+	}
+}
+
+function test_us(){
+	if(us_enabled == 0){
+		enable_us(1)
+		us_enabled = 1
+	}
+	var i = 0;
+	while(i < size(proximity_us)){
+		log(i, "US sensor: ", proximity_us[i].value, ", ", proximity_us[i].angle)
+		i = i + 1
+	}
+}
+
+function test_sound(){
+	# sound to be played (Warcraft2 Orc Peasant - of course...)
+	# path, volume
+	play_sound("/home/root/ivan/ready.wav", 90)
+}
+
+function test_neighbors(){
+	neighbors.foreach(
+		function(rid, data) {
+			log("robot ", rid, ": ",
+			"distance  = ", data.distance, ", ",
+			"azimuth   = ", data.azimuth, ", ",
+			"elevation = ", data.elevation)
+		}
+	)
+}
+
+function test_abs_position(){
+	log("I am at: ", absolute_position.x, ", ", absolute_position.y, ", at: ", absolute_position.theta)
+}
+
+function step() {
+
+	if(pc < 20){
+		if(id == 2 and pc == 10){
+			test_stigmergy()
+		}
+		x = v.get("stig")
+		log("Stigmergy size: ", v.size(), " value: ", x)
+	} else if ( pc >= 20 and pc < 30) {
+		log("Testing IR ")
+		execute = test_ir
+	} else if ( pc >= 30 and pc < 40) {
+		log("Testing US ")
+		execute = test_us
+	} else if ( pc >= 40 and pc < 50) {
+		if(us_enabled == 1){
+			enable_us(0)
+			us_enabled = 0
+		}
+		execute = test_sound
+	} else if (pc >= 50 and pc < 60) {
+		execute = test_neighbors
+	} else if (pc >= 60 and pc < 70) {
+		execute = test_neighbors
+	} else if (pc >= 70 and pc < 80) {
+		execute = test_abs_position
+	} else {
+		execute = default
+	}
+
+	# execute the default function
+	execute()
+	pc = pc + 1
+}
+
+function destroy() {
+	if(us_enabled == 1){
+		enable_us(0)
+		us_enabled = 0
+	}
+}

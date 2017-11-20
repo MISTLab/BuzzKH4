@@ -83,7 +83,7 @@ void incoming_packet_add(int id, const uint8_t* pl) {
   int packet_from = 0;
   int offset = sizeof(float) * 3;
   memcpy(&packet_from, pl + offset, sizeof(int));
-  printf("Packet from: %d", packet_from);
+  //printf("Packet from: %d", packet_from);
   if(packet_from == ROBOT_ID){
     offset += sizeof(int);
     memcpy(&abs_x, pl + offset, sizeof(float));

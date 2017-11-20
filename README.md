@@ -40,7 +40,7 @@ sudo make install
 cmake -DCMAKE_TOOLCHAIN_FILE=cmake/TargetKheperaIV.cmake ../src/
 ```
 
-4. Assuming everything is compiled without errors, update.sh can be used to deploy the necessary binaries to a Khepera robot, assuming that the folder strcture is given as (~/khepera-proper/):
+4. Assuming everything is compiled without errors, scripts/update.sh can be used to deploy the necessary binaries to a Khepera robot, assuming that the folder strcture is given as (~/khepera-proper/):
 
 ```
 .
@@ -53,4 +53,18 @@ update.sh
 Usage (if necessary, add executable permission as: chmod +x update.sh):
 ```
 ./update.sh (all|kh4) K01, K02, ..., K_n
+```
+
+## Example script:
+
+Available in demo/stest.bzz, it is a simple Buzz script which tests the absolute positioning, relative neighbor positioning, IR sensors, US sensors and sound. Run Buzz scripts by:
+
+```
+~/MIST/bin/bzzkh4 tcp 500 stest.bo stest.bdb
+```
+
+NOTE: Scripts can be compiled locally on a robot, or on a computer equipped with with cross-compiling tools. For local Buzz compilation use the scripts/buzz-run.sh script as:
+
+```
+./buzz-run.sh my_code (without any extensions)
 ```
