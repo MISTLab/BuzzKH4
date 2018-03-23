@@ -49,6 +49,8 @@ int buzzutility_play_sound(buzzvm_t vm);
 static pthread_t INCOMING_MSG_THREAD;
 /* PThread handle to manage blob center */
 static pthread_t blob_manage;
+/* PThread handle to blink the LEDs */
+static pthread_t blink_thread;
 
 void set_enable_cam(int cam_enable);
 
@@ -60,7 +62,7 @@ int get_enable_cam();
 static pthread_mutex_t INCOMING_PACKET_MUTEX;
 /*MUtex for camera*/
 static pthread_mutex_t camera_mutex;
-/*MUtex for camera enable*/
+/*Mutex for camera enable*/
 static pthread_mutex_t camera_enable_mutex;
 
 /* List of packets received over the stream */
@@ -321,6 +323,12 @@ static int buzz_register_hooks() {
    buzzvm_gstore(VM);
    buzzvm_pushs(VM,  buzzvm_string_register(VM, "set_leds", 1));
    buzzvm_pushcc(VM, buzzvm_function_register(VM, buzzkh4_set_leds));
+   buzzvm_gstore(VM);
+   buzzvm_pushs(VM,  buzzvm_string_register(VM, "set_led", 1));
+   buzzvm_pushcc(VM, buzzvm_function_register(VM, buzzkh4_set_led));
+   buzzvm_gstore(VM);
+   buzzvm_pushs(VM,  buzzvm_string_register(VM, "set_led_freq", 1));
+   buzzvm_pushcc(VM, buzzvm_function_register(VM, buzzkh4_set_led_freq));
    buzzvm_gstore(VM);
    buzzvm_pushs(VM, buzzvm_string_register(VM, "goto", 1));
    buzzvm_pushcc(VM, buzzvm_function_register(VM, BuzzGoTo));
@@ -605,9 +613,9 @@ void buzz_script_step() {
    STREAM_SEND();
    /* Sleep */
    usleep(FREQUENCY);
-   /* Print swarm */
-   buzzswarm_members_print(stdout, VM->swarmmembers, VM->robot);
-   /* Check swarm state */
+   /* Print swarm
+   buzzswarm_members_print(stdout, VM->swarmmembers, VM->robot);*/
+   /* Check swarm state
    int status = 1;
    buzzdict_foreach(VM->swarmmembers, check_swarm_members, &status);
    if(status == 1 &&
@@ -615,7 +623,7 @@ void buzz_script_step() {
       status = 2;
    buzzvm_pushs(VM, buzzvm_string_register(VM, "swarm_status", 1));
    buzzvm_pushi(VM, status);
-   buzzvm_gstore(VM);
+   buzzvm_gstore(VM);*/
 }
 
 /****************************************/
@@ -634,6 +642,8 @@ void buzz_script_destroy() {
 //printf("AFTERJOIN\n");
    stop_camera();
 //printf("STOPCAM\n");
+   pthread_cancel(blink_thread);
+   pthread_join(blink_thread, NULL);
 
    /* Get rid of stream buffer */
    free(STREAM_SEND_BUF);
@@ -679,8 +689,25 @@ int buzzutility_play_sound(buzzvm_t vm){
   return buzzvm_ret0(vm);
 }
 
+/****************************************/
+/****************************************/
+uint8_t on = 1;
+void* blink(void *args) {
+  while(1) {
+    pthread_testcancel();
+    turnon_led(on);
+    on = !on;
+    printf("Usleep for %i(%i)\n", get_led_freq(), on);
+    usleep(get_led_freq());
+    pthread_testcancel();
+  }
 
+  return NULL;
+}
 
+void start_blink() {
+   pthread_create(&blink_thread, NULL, &blink, NULL);
+}
 
 /****************************************/
 /****************************************/

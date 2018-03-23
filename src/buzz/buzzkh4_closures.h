@@ -21,6 +21,11 @@ extern int buzzkh4_set_wheels(buzzvm_t vm);
  * speeds are expressed in cm/s
  */
 extern int buzzkh4_set_leds(buzzvm_t vm);
+extern int buzzkh4_set_led(buzzvm_t vm);
+extern int buzzkh4_set_led_freq(buzzvm_t vm);
+//extern void set_single_led(int r, int g, int b, int n);
+extern void turnon_led(uint8_t on);
+extern int get_led_freq();
 
 /*
  * Updates battery information in Buzz

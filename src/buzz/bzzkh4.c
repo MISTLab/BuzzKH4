@@ -66,6 +66,8 @@ int main(int argc, char** argv) {
    kh4_setup();
    /*initialize camera thread*/
    camera_routine();
+   /*initialize LED thread*/
+   start_blink();
 
    /* Set the Buzz bytecode */
    if(buzz_script_set(bcfname, dbgfname)) {

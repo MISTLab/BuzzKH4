@@ -13,6 +13,8 @@ extern int buzz_script_done();
 
 extern void camera_routine();
 
+extern void start_blink();
+
 int FREQUENCY;
 
 #endif
