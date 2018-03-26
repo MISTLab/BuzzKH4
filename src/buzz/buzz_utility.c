@@ -534,7 +534,7 @@ void buzz_script_step() {
    buzzkh4_update_ir(VM);
    buzzkh4_update_ir_filtered(VM);
    buzzkh4_update_us(VM);
-   buzzkh4_abs_position(VM, abs_x, abs_x, abs_theta);
+   buzzkh4_abs_position(VM, abs_x, abs_y, abs_theta);
 
    pthread_mutex_lock(&camera_mutex);
    buzzkh4_camera_updateblob(VM,blob_pos);
@@ -695,10 +695,15 @@ uint8_t on = 1;
 void* blink(void *args) {
   while(1) {
     pthread_testcancel();
-    turnon_led(on);
-    on = !on;
-    printf("Usleep for %i(%i)\n", get_led_freq(), on);
-    usleep(get_led_freq());
+    long f = get_led_freq();
+    if(f==0 && !on) {
+      turnon_led(1);
+      on = 1;
+    } else if(f!=0) {
+      turnon_led(on);
+      usleep(f);
+      on = !on;
+    }
     pthread_testcancel();
   }
 

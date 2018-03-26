@@ -11,7 +11,7 @@ static const float sampling_rate = 0.01;
 static const float filter_time_const = 0.02;
 float ir_table [8] = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
 int rgb_val[9] = {0, 0, 0, 0, 0, 0, 0, 0, 0};
-int led_freq = 500;
+long led_freq = 0;
 
 int US_ENABLED = 0;
 int TurningMechanism = 0;
@@ -222,20 +222,24 @@ int buzzkh4_set_led(buzzvm_t vm) {
    return buzzvm_ret0(vm);
 }
 
+// led freq input: 0-100, output: in us, min: 10000, max 1000000
 int buzzkh4_set_led_freq(buzzvm_t vm) {
    buzzvm_lnum_assert(vm, 1);
    buzzvm_lload(vm, 1); /* freq */
    buzzvm_type_assert(vm, 1, BUZZTYPE_INT);
+   long f = buzzvm_stack_at(vm, 1)->i.value;
+   if(f!=0){
+     f = 10000 + f*(1000000-10000)/100;
+   }
   pthread_mutex_lock(&led_mutex);
-   led_freq = buzzvm_stack_at(vm, 1)->i.value;
+  led_freq = f;
   pthread_mutex_unlock(&led_mutex);
-  printf("LED FREQ UPDATED TO: %i\n", led_freq);
    return buzzvm_ret0(vm);
 }
 
-int get_led_freq(){
+long get_led_freq(){
   pthread_mutex_lock(&led_mutex);
-  int ret_freq = led_freq;
+  long ret_freq = led_freq;
   pthread_mutex_unlock(&led_mutex);
   return ret_freq;
 }
