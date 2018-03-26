@@ -691,7 +691,7 @@ int buzzutility_play_sound(buzzvm_t vm){
 
 /****************************************/
 /****************************************/
-uint8_t on = 1;
+uint8_t on = 0;
 void* blink(void *args) {
   while(1) {
     pthread_testcancel();
