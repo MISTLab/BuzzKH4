@@ -613,6 +613,11 @@ void buzz_script_step() {
    STREAM_SEND();
    /* Sleep */
    usleep(FREQUENCY);
+     buzzvm_pushs(VM, buzzvm_string_register(VM, "ROBOTS",1));
+     buzzvm_pushi(VM, buzzdict_size(VM->swarmmembers)+1);
+     buzzvm_gstore(VM);
+     printf("Swarm size : %i \n", buzzdict_size(VM->swarmmembers)+1);
+
    /* Print swarm
    buzzswarm_members_print(stdout, VM->swarmmembers, VM->robot);*/
    /* Check swarm state
