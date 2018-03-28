@@ -613,12 +613,10 @@ void buzz_script_step() {
       fprintf(stdout,"retrieving neighbors position: %.2f,%.2f,%.2f\n",xo,yo,to);*/
    buzzvm_process_outmsgs(VM);
    STREAM_SEND();
-   /* Sleep */
-   usleep(FREQUENCY);
+   /* Push the swarm size */
      buzzvm_pushs(VM, buzzvm_string_register(VM, "ROBOTS",1));
      buzzvm_pushi(VM, buzzdict_size(VM->swarmmembers)+1);
      buzzvm_gstore(VM);
-     printf("Swarm size : %i \n", buzzdict_size(VM->swarmmembers)+1);
 
    /* Print swarm
    buzzswarm_members_print(stdout, VM->swarmmembers, VM->robot);*/

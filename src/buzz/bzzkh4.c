@@ -71,9 +71,19 @@ int main(int argc, char** argv) {
 
    /* Set the Buzz bytecode */
    if(buzz_script_set(bcfname, dbgfname)) {
+      static struct timeval t1, t2;
       /* Main loop */
-      while(!done && !buzz_script_done())
-         buzz_script_step();
+      while(!done && !buzz_script_done()) {
+        buzz_script_step();
+        gettimeofday(&t2, NULL);
+        double elapsedTime = (t2.tv_sec - t1.tv_sec) * (int)1e6 + (t2.tv_usec - t1.tv_usec);
+        double sleepTime = FREQUENCY-elapsedTime;
+        if(sleepTime<0){
+          fprintf(stderr,"[Warning] Program running slower than %i Hz : elapsed time : %.4fuS.\n",strtol(argv[5], &endptr, 10),elapsedTime);
+         }
+         else
+            usleep(sleepTime);
+         }
       /* Cleanup */
       buzz_script_destroy();
    }
