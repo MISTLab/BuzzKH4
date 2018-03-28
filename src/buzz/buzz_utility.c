@@ -484,25 +484,27 @@ void buzz_script_step() {
       tot += sizeof(float);
       tot += sizeof(float);
 
-      buzzneighbors_add(VM, PACKETS_FIRST->id, x, y, t);
-      uint16_t msgsz;
-      do {
-         /* Get payload size */
-         msgsz = *(uint16_t*)(pl + tot); // <-- why would you do that? :/
-         tot += sizeof(uint16_t);
-         /* fprintf(stderr, "[DEBUG]    msg size = %u, tot = %zu\n", msgsz, tot); */
-         /* Make sure the message payload can be read */
-         if(msgsz > 0 && msgsz <= MSG_SIZE - tot) {
-            /* Append message to the Buzz input message queue */
-            buzzinmsg_queue_append(
-               VM,
-               PACKETS_FIRST->id,
-               buzzmsg_payload_frombuffer(pl + tot, msgsz));
-            tot += msgsz;
-            /* fprintf(stderr, "[DEBUG]    appended message, tot = %zu\n", tot); */
-         }
-      }
-      while(MSG_SIZE - tot > sizeof(uint16_t) && msgsz > 0);
+      //if(x*x+y*y > 0.3*0.3) { // limit the msg range of the nieghbor
+        buzzneighbors_add(VM, PACKETS_FIRST->id, x, y, t);
+        uint16_t msgsz;
+        do {
+           /* Get payload size */
+           msgsz = *(uint16_t*)(pl + tot); // <-- why would you do that? :/
+           tot += sizeof(uint16_t);
+           /* fprintf(stderr, "[DEBUG]    msg size = %u, tot = %zu\n", msgsz, tot); */
+           /* Make sure the message payload can be read */
+           if(msgsz > 0 && msgsz <= MSG_SIZE - tot) {
+              /* Append message to the Buzz input message queue */
+              buzzinmsg_queue_append(
+                 VM,
+                 PACKETS_FIRST->id,
+                 buzzmsg_payload_frombuffer(pl + tot, msgsz));
+              tot += msgsz;
+              /* fprintf(stderr, "[DEBUG]    appended message, tot = %zu\n", tot); */
+           }
+        }
+        while(MSG_SIZE - tot > sizeof(uint16_t) && msgsz > 0);
+      //}
 
 
       /**pretty sure that the loop above can be replaced by:
