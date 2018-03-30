@@ -31,6 +31,7 @@ static int         TCP_COMM_STREAM = -1;
 static uint8_t*    STREAM_SEND_BUF = NULL;
 static int         blob_pos[4];
 static int         enable_cam=0;
+static int         MSG_RANGE = 1.0;  //Max accepted range for msgs (m)
 // robot ID
 int                ROBOT_ID        = -1;
 // absolute positioning
@@ -484,7 +485,7 @@ void buzz_script_step() {
       tot += sizeof(float);
       tot += sizeof(float);
 
-      //if(x*x+y*y > 0.3*0.3) { // limit the msg range of the nieghbor
+      //if(x > MSG_RANGE) { // limit the msg range of the nieghbor
         buzzneighbors_add(VM, PACKETS_FIRST->id, x, y, t);
         uint16_t msgsz;
         do {
@@ -701,9 +702,11 @@ void* blink(void *args) {
   while(1) {
     pthread_testcancel();
     long f = get_led_freq();
-    if(f==0 && !on) {
-      turnon_led(1);
+    if(f==-1)
+      continue;
+    else if(f==0 && !on) {
       on = 1;
+      turnon_led(on);
     } else if(f!=0) {
       turnon_led(on);
       usleep(f);
