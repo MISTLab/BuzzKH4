@@ -11,7 +11,7 @@ static const float sampling_rate = 0.01;
 static const float filter_time_const = 0.02;
 float ir_table [8] = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
 int rgb_val[9] = {0, 0, 0, 0, 0, 0, 0, 0, 0};
-long led_freq = 0;
+long led_freq = -1;
 
 int US_ENABLED = 0;
 int TurningMechanism = 0;
