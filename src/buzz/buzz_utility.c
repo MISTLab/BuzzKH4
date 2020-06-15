@@ -411,6 +411,8 @@ int buzz_script_set(const char* bo_filename,
    buzzvm_execute_script(VM);
    /* Call the Init() function */
    buzzvm_function_call(VM, "init", 0);
+   /* Remove useless return value from stack */
+   buzzvm_pop(VM);
    /* All OK */
    return 1;
 }
@@ -552,6 +554,8 @@ void buzz_script_step() {
               buzz_error_info());
       buzzvm_dump(VM);
    }
+   /* Remove useless return value from stack */
+   buzzvm_pop(VM);
    /*
     * Broadcast messages
     */
