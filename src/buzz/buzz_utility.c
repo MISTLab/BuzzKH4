@@ -430,6 +430,7 @@ void buzz_script_step() {
             /* Append message to the Buzz input message queue */
             buzzinmsg_queue_append(
                VM,
+               VM->robot,
                buzzmsg_payload_frombuffer(pl + tot, msgsz));
             tot += msgsz;
             /* fprintf(stderr, "[DEBUG]    appended message, tot = %zu\n", tot); */
@@ -468,6 +469,9 @@ void buzz_script_step() {
    }
    /* Remove useless return value from stack */
    buzzvm_pop(VM);
+
+   /* Process outgoing messages */
+   buzzvm_process_outmsgs(VM);
    /*
     * Broadcast messages
     */
@@ -504,8 +508,6 @@ void buzz_script_step() {
    /* fprintf(stderr, "[DEBUG] send id = %u, sz = %u\n", */
    /*         *(uint16_t*)STREAM_SEND_BUF, */
    /*         *(uint16_t*)(STREAM_SEND_BUF + 2)); */
-   /* Send messages */
-   buzzvm_process_outmsgs(VM);
    STREAM_SEND();
    /* Sleep */
    usleep(100000);
