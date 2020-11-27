@@ -430,7 +430,7 @@ void buzz_script_step() {
             /* Append message to the Buzz input message queue */
             buzzinmsg_queue_append(
                VM,
-               VM->robot,
+               PACKETS_FIRST->id,
                buzzmsg_payload_frombuffer(pl + tot, msgsz));
             tot += msgsz;
             /* fprintf(stderr, "[DEBUG]    appended message, tot = %zu\n", tot); */
