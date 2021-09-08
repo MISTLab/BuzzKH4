@@ -5,13 +5,17 @@
 
 2- Install it: 
 
-`bash sudo tar -xjf khepera4-yocto-light-kbX.Y.tar.bz2 -C /usr/local`
+```bash
+sudo tar -xjf khepera4-yocto-light-kbX.Y.tar.bz2 -C /usr/local
+```
 
-3 - Get this repo:
+3- Get this repo:
 
-`bash git clone https://github.com/MISTLab/BuzzKH4.git`
+```bash
+git clone https://github.com/MISTLab/BuzzKH4.git
+```
 
-4 - Get and cross-compile Buzz: 
+4- Get and cross-compile Buzz: 
 
 ```bash 
 git clone https://github.com/MISTLab/Buzz.git
@@ -27,7 +31,7 @@ make
 sudo make install
 ```
 
-5 - Cross-compile this repo (assuming it is downloaded from previous steps):
+5- Cross-compile this repo (assuming it is downloaded from previous steps):
 
 ```bash
 
@@ -40,4 +44,7 @@ make
 sudo make install
 ```
 
-6 - upload it to your khepera: `bash scp bzzkh4 K01:/home/root/`
+6- Upload it to your khepera: 
+```bash
+scp bzzkh4 K01:/home/root/
+```
